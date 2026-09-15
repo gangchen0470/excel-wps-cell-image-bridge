@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui" onLoad="OnRibbonLoad">
+  <ribbon>
+    <tabs>
+      <tab id="tabCellImageCompat" label="图片兼容工具">
+        <group id="groupCellImageCompat" label="WPS / Excel 图片转换">
+          <button id="showCellImageCompat" label="打开转换面板" size="large" onAction="OnShowImageCompatPane" getEnabled="GetImageCompatEnabled"/>
+        </group>
+      </tab>
+    </tabs>
+  </ribbon>
+</customUI>
+

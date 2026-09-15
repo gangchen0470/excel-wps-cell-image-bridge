@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cell-image-compat"
+version = "0.1.0"
+description = "OOXML compatibility core for Excel and WPS cell images"
+requires-python = ">=3.10"
+
+[project.scripts]
+cell-image-compat = "cell_image_compat.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

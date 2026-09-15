@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>图片兼容工具</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+</head>
+<body>
+  <main>
+    <h1>图片兼容工具</h1>
+    <p id="host" class="muted">正在识别宿主……</p>
+
+    <section>
+      <h2>嵌入单元格 → 浮动图片</h2>
+      <p>无需选择，转换整个工作簿。</p>
+      <button id="to-floating">一键转换全部图片</button>
+    </section>
+
+    <section>
+      <h2>浮动图片 → 嵌入单元格</h2>
+      <p>先在工作表中选择目标单元格区域。</p>
+      <div class="buttons">
+        <button id="to-excel">转换为 Excel 图片</button>
+        <button id="to-wps">转换为 WPS 图片</button>
+      </div>
+    </section>
+
+    <section aria-live="polite">
+      <h2>处理状态</h2>
+      <progress id="progress" max="100" value="0"></progress>
+      <p id="status">等待操作</p>
+    </section>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
+
