@@ -17,7 +17,7 @@ def _parser() -> argparse.ArgumentParser:
     convert = sub.add_parser("compatible", help="Create a standard floating-image XLSX copy")
     convert.add_argument("workbook", type=Path)
     convert.add_argument("output", type=Path)
-    convert.add_argument("--margin", type=int, default=0, help="cell margin in pixels (default: 0)")
+    convert.add_argument("--margin", type=int, default=2, help="cell margin in pixels (default: 2)")
     convert.add_argument("--sheet", help="only convert images on this worksheet")
     convert.add_argument("--range", dest="cell_range", help="only convert this A1 range, for example B2:B500")
     convert.add_argument("--log", type=Path, help="write a JSON conversion report")

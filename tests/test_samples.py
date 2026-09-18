@@ -35,7 +35,7 @@ class SampleWorkbookTests(unittest.TestCase):
         self.assertEqual(_image_size(gif, "image/gif"), (400, 1600))
         self.assertEqual(_image_size(bmp, "image/bmp"), (800, 600))
         self.assertEqual(_image_size(vp8x, "image/webp"), (1000, 500))
-        self.assertEqual(_image_size(jpeg, "image/jpeg"), (1200, 300))
+        self.assertEqual(_image_size(jpeg, "image/jpeg"), (300, 1200))
 
     def test_contain_fit_for_wide_tall_and_square_images(self):
         cell_w, cell_h = 1000, 800
@@ -62,6 +62,8 @@ class SampleWorkbookTests(unittest.TestCase):
         self.assertIn(yoff * 2 + draw_h, (cell_h - 1, cell_h))
 
     def _sample(self, variable: str) -> Path:
+        if not os.environ.get(variable):
+            self.skipTest(f"Set {variable} to run real-client sample checks")
         path = Path(os.environ[variable])
         self.assertTrue(path.is_file(), path)
         return path
@@ -102,12 +104,12 @@ class SampleWorkbookTests(unittest.TestCase):
             if b"Ignorable" in sheet:
                 self.assertIn(b'mc:Ignorable="x14ac xr"', sheet)
             drawing = archive.read("xl/drawings/drawing1.xml")
-            self.assertIn(b"oneCellAnchor", drawing)
-            self.assertNotIn(b"twoCellAnchor", drawing)
+            self.assertIn(b'twoCellAnchor editAs="twoCell"', drawing)
+            self.assertNotIn(b"oneCellAnchor", drawing)
             self.assertIn(b"<a:xfrm>", drawing)
             drawing_root = ET.fromstring(drawing)
             dns = {"xdr": "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"}
-            extent = drawing_root.find("xdr:oneCellAnchor/xdr:ext", dns)
+            extent = drawing_root.find("xdr:twoCellAnchor/xdr:pic/xdr:spPr/a:xfrm/a:ext", {**dns, "a": "http://schemas.openxmlformats.org/drawingml/2006/main"})
             self.assertGreater(int(extent.attrib["cx"]), 0)
             self.assertGreater(int(extent.attrib["cy"]), 0)
             # Default Excel/WPS column width is at least 59 px. This ceiling

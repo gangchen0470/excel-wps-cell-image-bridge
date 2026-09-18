@@ -1,63 +1,77 @@
-# WPS & Excel 单元格图片兼容核心
+# Excel / WPS 单元格图片兼容工具
 
-当前版本提供一个零第三方运行时依赖的 OOXML 核心，可识别：
+V1 主线：**WPS DISPIMG / Excel Place in Cell → Excel 和 WPS 可见的标准浮动图片**。项目包含 Python 3.10+ OOXML 转换器与浏览器/NAS 页面。
 
-- Microsoft Excel Rich Data 单元格图片
-- WPS `DISPIMG` / `cellimages.xml` 单元格图片
+## 恢复规则
 
-并可将两者转换为标准 DrawingML 浮动图片，原媒体文件直接复用、不重新压缩。输出图片按原单元格等比例缩放、居中，默认使用完整单元格可用空间；可通过 `--margin` 增加边距。
+- 保持原图比例、完整显示、水平和垂直居中。
+- 默认 2px 内边距（96 DPI），可用 `--margin` 调整。
+- 绑定原单元格；合并单元格以整个合并区域计算。
+- 写入 `twoCellAnchor editAs="twoCell"`，声明随单元格移动和缩放，并锁定宽高比。
+- 保留行列尺寸；沿用现有行高锁定逻辑，避免清除公式后的自动重算。
+- 另存副本，拒绝输入输出同路径。指定的已有输出文件会被替换。
 
-多图片场景中，每张图片均按自己的原始宽高比和所在单元格独立计算：横图受宽度限制、竖图受高度限制、正方形图片受较短边限制。转换不会为了某张图片修改整列宽度或所在行高度。
+转换时的比例、居中、边距已做结构验证。静态锚点不能承诺任意行列调整后自动重新等比居中或保持固定边距；实际表现须在 Excel 验证，必要时后续插件重新布局。
 
-尺寸解析覆盖 PNG、JPEG（基线/渐进及常见 SOF 类型）、GIF、BMP 与 WebP（VP8/VP8L/VP8X）。
+## 运行（仓库根目录，Windows PowerShell）
 
-## 使用
-
-```bash
-PYTHONPATH=src python3 -m cell_image_compat.cli inspect "input.xlsx"
-PYTHONPATH=src python3 -m cell_image_compat.cli compatible "input.xlsx" "output.xlsx"
-PYTHONPATH=src python3 -m cell_image_compat.cli compatible "input.xlsx" "output.xlsx" --margin 5
-PYTHONPATH=src python3 -m cell_image_compat.cli compatible "input.xlsx" "output.xlsx" --sheet "Sheet1" --range "B2:B500" --log "conversion.json"
-PYTHONPATH=src python3 -m cell_image_compat.cli native "wps-input.xlsx" "excel-output.xlsx" --target excel
-PYTHONPATH=src python3 -m cell_image_compat.cli native "excel-input.xlsx" "wps-output.xlsx" --target wps
-PYTHONPATH=src python3 -m cell_image_compat.cli floating-native "input.xlsx" "output.xlsx" --target wps --sheet "Sheet1" --range "B2:B500"
+```powershell
+$env:PYTHONPATH = "src"
+python -m cell_image_compat.cli inspect "input.xlsx"
+python -m cell_image_compat.cli compatible "input.xlsx" "compatible.xlsx" --log "conversion.json"
+python -m unittest discover -s tests -v
 ```
 
-工具拒绝用相同路径覆盖源文件。
+可选 `--margin 2 --sheet "Sheet1" --range "B2:B500"`。macOS/Linux 使用 `PYTHONPATH=src python3 -m cell_image_compat.cli ...`。也可 `python -m pip install -e .` 安装命令行入口。
 
-## 插件开发外壳
+## 目录
 
-启动共享本地服务：
-
-```bash
-PYTHONPATH=src python3 plugins/service.py --port 3000
+```text
+src/cell_image_compat/
+  xlsx_parser.py     # ZIP/XML、关系路径、工作表和内容类型
+  wps_dispimg.py     # DISPIMG → 图片 ID → 媒体文件
+  layout.py         # 默认规则、合并区域、锚点坐标归一化
+  core.py           # 图片尺寸、DrawingML 转换和包写回；保留旧能力
+  model.py          # 图片模型和异常
+  cli.py            # 检测及转换入口
+plugins/
+  excel/            # 已有 Excel 加载项清单
+  wps/              # 已有 WPS 外壳
+  shared/           # 已有共享任务窗格
+  service.py        # 本地开发服务
+tests/
+  fixtures/         # 结构夹具生成器、真实样本约定
+  output/           # 人工测试输出目录
+  test_v1.py        # 无外部样本依赖的回归测试
+  test_samples.py   # 既有单元测试及可选真实样本测试
+docs/DEVELOPMENT.md  # 开发路线和客户端验收
 ```
 
-- Excel 开发清单：`plugins/excel/manifest.xml`
-- WPS 功能区：`plugins/wps/ribbon.xml` 与 `plugins/wps/main.js`
-- 两端共用：`plugins/shared/` 任务窗格
+沿用已有包结构，不建立重复的空目录。仓库已有原生双向互转实验能力，本轮暂不扩展，不作为 V1 验收目标。
 
-当前为本地开发外壳，输出以新文件下载，不覆盖活动工作簿。正式发布前需要配置 HTTPS、签名/发布流程和服务鉴权。
+## 验证与边界
 
-## 正式发布目标
+当前 Python 测试共 20 项：14 项通过，6 项因缺少真实样本跳过；另有 2 项页面交互测试通过。覆盖合并区域、横竖图、重复引用、已有 Drawing 追加、默认边距、比例、源文件和媒体保留、缺失媒体、异常公式、JPEG 宽高解析。
 
-正式版以 Windows 为首要平台，最终提供普通用户可直接运行的安装程序：
+只接受独立 `DISPIMG("id",1)`，支持 `_xlfn.` 前缀、大小写和空格。嵌套表达式、动态 ID 和缺失图片会报错终止。部分转换保留未转换图片的索引。隐藏行列、复杂公式和特殊字体尺寸仍待完善。
 
-- 安装程序内置转换核心和运行环境，用户无需安装 Python、Node.js 或命令行工具。
-- 安装后分别在 Microsoft Excel 与 WPS 表格中显示“图片兼容工具”。
-- 后台转换组件随用户登录自动启动，仅监听本机回环地址。
-- Excel 使用正式 HTTPS 任务窗格资源及受信任加载项目录；WPS 使用 `wpsjs publish` 生成的发布包。
-- 安装程序负责注册、升级和卸载，不覆盖用户工作簿。
+自动化实机测试已用 Excel 完成 3 张合成图片的检测、转换、位置属性检查以及保存重开；下一步使用含 5–10 张图片的真实 WPS 文件做人工视觉验收。详见 [开发说明](docs/DEVELOPMENT.md)。
 
-仓库中的 `plugins/` 当前是开发外壳；Windows 可安装包、代码签名和两端发布包仍属于后续发布阶段。
+## 本地页面与插件任务窗格
 
-通用兼容版默认处理整个工作簿，也可按工作表及 A1 区域筛选。JSON 日志记录扫描、成功、失败、跳过数量和完成时间。部分范围转换会保留源格式索引，未选中的单元格图片继续维持原格式。
+```powershell
+$env:PYTHONPATH = "src"
+python plugins/service.py --port 3000
+```
 
-交互规则：嵌入单元格图片转浮动图片默认整本处理，不要求选择；浮动图片转原生单元格图片必须同时提供工作表、选择区域和目标格式。浮动图片按中心点归属单元格，只有中心点位于选区中的图片会被转换。
+打开 http://127.0.0.1:3000 ，选择已保存的 `.xlsx`：
 
-## 当前边界
+1. **检测 WPS 图片**：列出数量及单元格，不生成文件。
+2. **一键修复**：生成兼容副本，完成后启用保存按钮。
+3. **另存为兼容版**：发起浏览器下载；保存位置由浏览器设置控制。
 
-- 已实现识别和“通用兼容版”输出。
-- 已支持在无既有 Drawing 的样本中生成标准浮动图片；存在 Drawing 时会追加。使用单单元格锚点并显式写入图片变换尺寸，以避免不同客户端重算双锚点偏移。
-- 已实现 Excel Rich Data 与 WPS CellImage 的原生格式互转写回，当前通过结构闭环测试，仍需 Microsoft Excel 与 WPS 目标客户端实机确认。
-- 合并单元格、隐藏行列、多图冲突和损坏关系的逐项容错将在下一阶段实现。
+可以直接修复，不强制先检测。更换文件或处理失败会清除上次结果，防止误保存。页面最多接受 25 MB 文件，仅处理 WPS 图片；既有 Excel 原生图片保留。原生互转仍可通过旧命令行入口调用，页面不再提供。
+
+同一页面供浏览器和旧任务窗格外壳加载，统一使用文件选择器。需要直接操作活动工作簿时，请使用上面的 Windows 原生插件。
+
+页面测试（开发时需要 Node.js）：`node --test tests/test_ui.cjs`。普通运行只需要 Python。

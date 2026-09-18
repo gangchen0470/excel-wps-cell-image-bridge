@@ -4,6 +4,9 @@ __pycache__/
 .venv/
 build/
 dist/
+plugins/excel-native/bin/
+/plugins/excel-native/
+/安装VSTO开发工具.cmd
 work/
 outputs/
 ~$*.xlsx

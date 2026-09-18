@@ -3,37 +3,34 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>图片兼容工具</title>
+  <title>WPS 图片修复</title>
   <link rel="stylesheet" href="/styles.css">
-  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
 </head>
 <body>
   <main>
-    <h1>图片兼容工具</h1>
-    <p id="host" class="muted">正在识别宿主……</p>
-
+    <p class="eyebrow">Excel / WPS · V1 开发版</p>
+    <h1>让表格里的图片重新可见</h1>
+    <p class="muted">将 WPS 单元格图片恢复为 Excel 可见图片，保存为新的兼容副本。</p>
     <section>
-      <h2>嵌入单元格 → 浮动图片</h2>
-      <p>无需选择，转换整个工作簿。</p>
-      <button id="to-floating">一键转换全部图片</button>
-    </section>
-
-    <section>
-      <h2>浮动图片 → 嵌入单元格</h2>
-      <p>先在工作表中选择目标单元格区域。</p>
+      <h2>选择工作簿</h2>
+      <label for="workbook">已保存的 .xlsx 文件（最多 25 MB）</label>
+      <input id="workbook" type="file" accept=".xlsx">
+      <p id="filename" class="muted">尚未选择文件</p>
+      <p class="hint">按原比例完整显示 · 居中 · 2px 留白 · 支持合并单元格</p>
       <div class="buttons">
-        <button id="to-excel">转换为 Excel 图片</button>
-        <button id="to-wps">转换为 WPS 图片</button>
+        <button id="inspect" disabled>检测 WPS 图片</button>
+        <button id="repair" disabled>一键修复</button>
+        <button id="save" disabled>另存为兼容版</button>
       </div>
     </section>
-
-    <section aria-live="polite">
-      <h2>处理状态</h2>
-      <progress id="progress" max="100" value="0"></progress>
-      <p id="status">等待操作</p>
+    <section aria-labelledby="result-title">
+      <h2 id="result-title">处理结果</h2>
+      <p id="status" role="status" aria-live="polite">选择文件后即可检测或修复。</p>
+      <progress id="progress" aria-label="处理进度" hidden></progress>
+      <ul id="images" aria-label="检测到的图片"></ul>
     </section>
+    <p class="muted footnote">文件由本机服务处理。请先在 WPS 中保存修改，再选择文件；原文件保持不变。</p>
   </main>
   <script type="module" src="/app.js"></script>
 </body>
 </html>
-

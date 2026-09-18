@@ -1,64 +1,91 @@
-import { getHost } from "/hosts.js";
-
+const input = document.querySelector("#workbook");
 const status = document.querySelector("#status");
 const progress = document.querySelector("#progress");
-const buttons = [...document.querySelectorAll("button")];
-let host;
+const inspect = document.querySelector("#inspect");
+const repair = document.querySelector("#repair");
+const save = document.querySelector("#save");
+const list = document.querySelector("#images");
+let file = null;
+let result = null;
+let busy = false;
 
-function busy(value) {
-  buttons.forEach((button) => { button.disabled = value; });
+function refresh() {
+  input.disabled = busy;
+  inspect.disabled = busy || !file;
+  repair.disabled = busy || !file;
+  save.disabled = busy || !result;
+  progress.hidden = !busy;
 }
 
-function download(base64, filename) {
-  const binary = atob(base64);
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+input.addEventListener("change", () => {
+  file = input.files[0] || null;
+  result = null;
+  list.replaceChildren();
+  if (file && (!/\.xlsx$/i.test(file.name) || file.size > 25 * 1024 * 1024)) {
+    status.textContent = "请选择不超过 25 MB 的 .xlsx 文件。";
+    file = null;
+  } else {
+    status.textContent = file ? "文件已就绪，可以检测或直接修复。" : "选择文件后即可检测或修复。";
+  }
+  document.querySelector("#filename").textContent = file?.name || "尚未选择有效文件";
+  refresh();
+});
+
+async function base64(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(binary);
+}
+
+async function run(operation) {
+  if (!file || busy) return;
+  busy = true;
+  result = null;
+  list.replaceChildren();
+  refresh();
+  status.textContent = operation === "inspect" ? "正在检测图片……" : "正在生成兼容副本……";
+  try {
+    const response = await fetch("/api/convert", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ operation, sourceName: file.name, workbookBase64: await base64(file) }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "处理失败");
+    for (const image of data.images) {
+      const item = document.createElement("li");
+      item.textContent = `${image.sheet_name} · ${image.cell}`;
+      list.append(item);
+    }
+    if (operation === "inspect") {
+      status.textContent = data.count ? `检测到 ${data.count} 张 WPS 图片，可点击“一键修复”。` : "没有检测到 WPS 单元格图片。";
+    } else {
+      result = data;
+      status.textContent = `已修复 ${data.converted} 张图片。请点击“另存为兼容版”保存结果。`;
+    }
+  } catch (error) {
+    status.textContent = `处理失败：${error.message}`;
+  } finally {
+    busy = false;
+    refresh();
+  }
+}
+
+inspect.addEventListener("click", () => run("inspect"));
+repair.addEventListener("click", () => run("compatible"));
+save.addEventListener("click", () => {
+  if (!result || busy) return;
+  const bytes = Uint8Array.from(atob(result.workbookBase64), char => char.charCodeAt(0));
   const url = URL.createObjectURL(new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
   const link = document.createElement("a");
   link.href = url;
-  link.download = filename;
+  link.download = result.filename;
+  document.body.append(link);
   link.click();
-  URL.revokeObjectURL(url);
-}
-
-async function convert(operation, target) {
-  busy(true);
-  progress.value = 20;
-  status.textContent = "正在读取工作簿……";
-  try {
-    const request = { ...(await host.payload()), operation };
-    if (operation === "floating-native") {
-      const selected = await host.selection();
-      Object.assign(request, selected, { target });
-    }
-    status.textContent = "正在转换图片……";
-    progress.value = 70;
-    const response = await fetch("/api/convert", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request) });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "转换失败");
-    download(result.workbookBase64, result.filename);
-    progress.value = 100;
-    status.textContent = `完成：成功 ${result.converted} 张，已生成 ${result.filename}`;
-  } catch (error) {
-    progress.value = 0;
-    status.textContent = `失败：${error.message}`;
-  } finally {
-    busy(false);
-  }
-}
-
-document.querySelector("#to-floating").addEventListener("click", () => convert("compatible"));
-document.querySelector("#to-excel").addEventListener("click", () => convert("floating-native", "excel"));
-document.querySelector("#to-wps").addEventListener("click", () => convert("floating-native", "wps"));
-
-async function initialize() {
-  try {
-    if (typeof Office !== "undefined" && Office.onReady) await Office.onReady();
-    host = await getHost();
-    document.querySelector("#host").textContent = `当前宿主：${host.name}`;
-  } catch (error) {
-    document.querySelector("#host").textContent = error.message;
-    buttons.forEach((button) => { button.disabled = true; });
-  }
-}
-
-initialize();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  status.textContent = `已发起下载：${result.filename}。请在浏览器下载列表中确认保存。`;
+});
+refresh();

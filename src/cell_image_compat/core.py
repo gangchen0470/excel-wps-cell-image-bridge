@@ -11,137 +11,11 @@ from xml.etree import ElementTree as ET
 
 from .model import CellImage, FloatingImage, InvalidWorkbookError, UnsupportedWorkbookError
 
-NS = {
-    "main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
-    "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
-    "pr": "http://schemas.openxmlformats.org/package/2006/relationships",
-    "xdr": "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing",
-    "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
-    "wps": "http://www.wps.cn/officeDocument/2017/etCustomData",
-    "xlrd": "http://schemas.microsoft.com/office/spreadsheetml/2017/richdata",
-    "xrvrel": "http://schemas.microsoft.com/office/spreadsheetml/2022/richvaluerel",
-    "ct": "http://schemas.openxmlformats.org/package/2006/content-types",
-    "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
-    "x14ac": "http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac",
-    "xr": "http://schemas.microsoft.com/office/spreadsheetml/2014/revision",
-    "xr2": "http://schemas.microsoft.com/office/spreadsheetml/2015/revision2",
-    "xr3": "http://schemas.microsoft.com/office/spreadsheetml/2016/revision3",
-}
-
-for prefix in ("r", "xdr", "a", "mc", "x14ac", "xr", "xr2", "xr3"):
-    ET.register_namespace(prefix, NS[prefix])
-ET.register_namespace("etc", NS["wps"])
-ET.register_namespace("xlrd", NS["xlrd"])
-ET.register_namespace("xrvrel", NS["xrvrel"])
-ET.register_namespace("", NS["main"])
-
-REL_IMAGE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
-REL_DRAWING = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"
-WPS_CELL_IMAGE_REL = "http://www.wps.cn/officeDocument/2020/cellImage"
-RICH_REL_TYPES = {
-    "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValueTypes",
-    "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValueStructure",
-    "http://schemas.microsoft.com/office/2017/06/relationships/rdRichValue",
-    "http://schemas.microsoft.com/office/2022/10/relationships/richValueRel",
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/sheetMetadata",
-}
-DISPIMG_RE = re.compile(r'DISPIMG\("([^"]+)"', re.IGNORECASE)
-CELL_RE = re.compile(r"^([A-Z]+)([1-9][0-9]*)$")
-RANGE_RE = re.compile(r"^([A-Z]+[1-9][0-9]*)(?::([A-Z]+[1-9][0-9]*))?$")
+from .xlsx_parser import (NS, REL_IMAGE, REL_DRAWING, WPS_CELL_IMAGE_REL, RICH_REL_TYPES, DISPIMG_RE, CELL_RE, RANGE_RE, _xml, _resolve, _rels_path, _rel_map, _load, _workbook_sheets, _content_types)
+from .layout import DEFAULT_MARGIN, merged_bounds, region_geometry, offset_marker
 
 
-def _xml(data: bytes, name: str) -> ET.Element:
-    try:
-        return ET.fromstring(data)
-    except ET.ParseError as exc:
-        raise InvalidWorkbookError(f"Invalid XML in {name}: {exc}") from exc
-
-
-def _resolve(source_part: str, target: str) -> str:
-    return posixpath.normpath(posixpath.join(posixpath.dirname(source_part), target))
-
-
-def _rels_path(part: str) -> str:
-    return posixpath.join(posixpath.dirname(part), "_rels", posixpath.basename(part) + ".rels")
-
-
-def _rel_map(parts: dict[str, bytes], part: str) -> dict[str, tuple[str, str]]:
-    path = _rels_path(part)
-    if path not in parts:
-        return {}
-    root = _xml(parts[path], path)
-    result = {}
-    for rel in root.findall("pr:Relationship", NS):
-        result[rel.attrib["Id"]] = (rel.attrib["Type"], _resolve(part, rel.attrib["Target"]))
-    return result
-
-
-def _load(path: Path) -> dict[str, bytes]:
-    if not path.is_file():
-        raise FileNotFoundError(path)
-    if not zipfile.is_zipfile(path):
-        raise InvalidWorkbookError(f"Not a valid XLSX ZIP package: {path}")
-    with zipfile.ZipFile(path) as archive:
-        bad = archive.testzip()
-        if bad:
-            raise InvalidWorkbookError(f"Corrupt ZIP member: {bad}")
-        return {name: archive.read(name) for name in archive.namelist() if not name.endswith("/")}
-
-
-def _workbook_sheets(parts: dict[str, bytes]) -> list[tuple[str, str]]:
-    workbook = "xl/workbook.xml"
-    if workbook not in parts:
-        raise InvalidWorkbookError("Missing xl/workbook.xml")
-    rels = _rel_map(parts, workbook)
-    root = _xml(parts[workbook], workbook)
-    sheets = []
-    for sheet in root.findall("main:sheets/main:sheet", NS):
-        rid = sheet.attrib.get(f"{{{NS['r']}}}id")
-        if rid in rels:
-            sheets.append((sheet.attrib.get("name", ""), rels[rid][1]))
-    return sheets
-
-
-def _content_types(parts: dict[str, bytes]) -> dict[str, str]:
-    root = _xml(parts["[Content_Types].xml"], "[Content_Types].xml")
-    defaults = {n.attrib["Extension"].lower(): n.attrib["ContentType"] for n in root.findall("ct:Default", NS)}
-    overrides = {n.attrib["PartName"].lstrip("/"): n.attrib["ContentType"] for n in root.findall("ct:Override", NS)}
-    result = dict(overrides)
-    for name in parts:
-        result.setdefault(name, defaults.get(Path(name).suffix.lstrip(".").lower(), "application/octet-stream"))
-    return result
-
-
-def _detect_wps(parts: dict[str, bytes], sheets: list[tuple[str, str]], types: dict[str, str]) -> list[CellImage]:
-    cell_images = "xl/cellimages.xml"
-    if cell_images not in parts:
-        return []
-    rels = _rel_map(parts, cell_images)
-    root = _xml(parts[cell_images], cell_images)
-    image_by_id: dict[str, str] = {}
-    for pic in root.findall("wps:cellImage/xdr:pic", NS):
-        prop = pic.find("xdr:nvPicPr/xdr:cNvPr", NS)
-        blip = pic.find("xdr:blipFill/a:blip", NS)
-        if prop is None or blip is None:
-            continue
-        image_id = prop.attrib.get("name", "")
-        rid = blip.attrib.get(f"{{{NS['r']}}}embed", "")
-        if image_id and rid in rels and rels[rid][0] == REL_IMAGE:
-            image_by_id[image_id] = rels[rid][1]
-
-    found = []
-    for sheet_name, sheet_path in sheets:
-        root = _xml(parts[sheet_path], sheet_path)
-        for cell in root.findall(".//main:c", NS):
-            formula = cell.findtext("main:f", default="", namespaces=NS)
-            match = DISPIMG_RE.search(formula)
-            if not match:
-                continue
-            image_id = match.group(1)
-            media = image_by_id.get(image_id)
-            if media in parts:
-                found.append(CellImage(sheet_name, sheet_path, cell.attrib["r"], media, "wps", image_id, types.get(media)))
-    return found
+from .wps_dispimg import _detect_wps
 
 
 def _detect_excel(parts: dict[str, bytes], sheets: list[tuple[str, str]], types: dict[str, str]) -> list[CellImage]:
@@ -179,7 +53,11 @@ def _detect_excel(parts: dict[str, bytes], sheets: list[tuple[str, str]], types:
         for cell in root.findall(".//main:c", NS):
             try:
                 vm_index = int(cell.attrib.get("vm", "0")) - 1
+                if vm_index < 0:
+                    continue
                 rich_index = rich_indexes[vm_index]
+                if rich_index < 0:
+                    continue
                 item = rich_media[rich_index]
             except (ValueError, IndexError):
                 continue
@@ -261,11 +139,11 @@ def _image_size(data: bytes, content_type: str | None) -> tuple[int, int]:
                 continue
             marker = data[i + 1]
             if marker in sof_markers:
-                return int.from_bytes(data[i + 5:i + 7], "big"), int.from_bytes(data[i + 7:i + 9], "big")
+                return int.from_bytes(data[i + 7:i + 9], "big"), int.from_bytes(data[i + 5:i + 7], "big")
             if i + 4 > len(data):
                 break
             i += 2 + int.from_bytes(data[i + 2:i + 4], "big")
-    return 1, 1
+    raise UnsupportedWorkbookError("Unsupported or damaged image header; cannot preserve aspect ratio")
 
 
 def _sheet_cell_emu(sheet: ET.Element, col: int, row: int) -> tuple[int, int]:
@@ -384,7 +262,11 @@ def inspect_floating_images(path: str | Path) -> list[FloatingImage]:
 
 def _fit_contain(cell_w: int, cell_h: int, img_w: int, img_h: int, margin: int) -> tuple[int, int, int, int]:
     """Return bounded width, height and centered offsets in EMUs."""
-    margin_emu = max(0, margin) * 9525
+    if margin < 0 or not math.isfinite(margin):
+        raise ValueError("margin must be finite and non-negative")
+    if img_w <= 0 or img_h <= 0:
+        raise InvalidWorkbookError("Image dimensions must be positive")
+    margin_emu = margin * 9525
     avail_w = max(1, cell_w - 2 * margin_emu)
     avail_h = max(1, cell_h - 2 * margin_emu)
     scale = min(avail_w / max(1, img_w), avail_h / max(1, img_h))
@@ -403,15 +285,17 @@ def _next_rid(root: ET.Element) -> str:
 
 def _new_anchor(item: CellImage, rel_id: str, image_number: int, sheet_root: ET.Element, media: bytes, margin: int) -> ET.Element:
     col, row = _cell_position(item.cell)
-    cell_w, cell_h = _sheet_cell_emu(sheet_root, col, row)
+    bounds = merged_bounds(sheet_root, col, row, NS, _cell_position)
+    col, row = bounds[:2]
+    cell_w, cell_h = region_geometry(sheet_root, bounds, _sheet_cell_emu)
     img_w, img_h = _image_size(media, item.content_type)
     draw_w, draw_h, xoff, yoff = _fit_contain(cell_w, cell_h, img_w, img_h, margin)
 
-    anchor = ET.Element(f"{{{NS['xdr']}}}oneCellAnchor")
-    marker = ET.SubElement(anchor, f"{{{NS['xdr']}}}from")
-    for name, value in (("col", col), ("colOff", xoff), ("row", row), ("rowOff", yoff)):
-        ET.SubElement(marker, f"{{{NS['xdr']}}}{name}").text = str(value)
-    ET.SubElement(anchor, f"{{{NS['xdr']}}}ext", {"cx": str(draw_w), "cy": str(draw_h)})
+    anchor = ET.Element(f"{{{NS['xdr']}}}twoCellAnchor", {"editAs": "twoCell"})
+    for tag, x, y in (("from", xoff, yoff), ("to", xoff + draw_w, yoff + draw_h)):
+        marker = ET.SubElement(anchor, f"{{{NS['xdr']}}}{tag}")
+        for name, value in offset_marker(sheet_root, col, row, x, y, _sheet_cell_emu):
+            ET.SubElement(marker, f"{{{NS['xdr']}}}{name}").text = str(value)
     pic = ET.SubElement(anchor, f"{{{NS['xdr']}}}pic")
     nv = ET.SubElement(pic, f"{{{NS['xdr']}}}nvPicPr")
     ET.SubElement(nv, f"{{{NS['xdr']}}}cNvPr", {"id": str(image_number), "name": f"Picture {image_number}"})
@@ -531,7 +415,7 @@ def _convert_sheet(parts: dict[str, bytes], sheet_path: str, items: list[CellIma
         })
         ET.SubElement(sheet_root, f"{{{NS['main']}}}drawing", {f"{{{NS['r']}}}id": drawing_rel})
 
-    picture_id = len(drawing_root.findall(".//xdr:pic", NS)) + 1
+    picture_id = max((int(n.attrib.get("id", "0")) for n in drawing_root.findall(".//xdr:cNvPr", NS)), default=0) + 1
     for item in items:
         rid = _next_rid(drawing_rels)
         ET.SubElement(drawing_rels, f"{{{NS['pr']}}}Relationship", {
@@ -831,18 +715,24 @@ def _write(parts: dict[str, bytes], destination: Path) -> None:
 def make_compatible_copy(
     source: str | Path,
     destination: str | Path,
-    margin: int = 0,
+    margin: int = DEFAULT_MARGIN,
     sheet: str | None = None,
     cell_range: str | None = None,
+    *,
+    source_format: str | None = None,
 ) -> list[CellImage]:
     source_path, destination_path = Path(source), Path(destination)
     if source_path.resolve() == destination_path.resolve():
         raise ValueError("Refusing to overwrite the source workbook")
     parts = _load(source_path)
+    if source_format not in (None, "wps", "excel"):
+        raise ValueError("source_format must be wps, excel or None")
     all_images = _inspect_parts(parts)
     if not all_images:
         raise UnsupportedWorkbookError("No supported Excel or WPS cell images found")
     images = _select_images(all_images, sheet, cell_range)
+    if source_format:
+        images = [image for image in images if image.source_format == source_format]
     if not images:
         raise UnsupportedWorkbookError("No supported cell images found in the requested scope")
     grouped: dict[str, list[CellImage]] = {}
