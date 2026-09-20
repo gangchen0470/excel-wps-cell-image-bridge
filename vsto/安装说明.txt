@@ -1,0 +1,12 @@
+Cell Image Bridge VSTO 1.0.1（Microsoft Excel 插件）
+
+安装方法：
+1. 完整解压本 ZIP，不能直接在压缩包内运行。
+2. 关闭所有 Microsoft Excel 窗口。
+3. 双击 CellImageBridgeVsto.vsto。
+4. 在 Microsoft Office 自定义项安装程序中点击“安装”。
+5. 重新打开 Excel，在功能区找到“图片修复”。
+
+用途：将 WPS DISPIMG 单元格图片转换为 Excel 可见的浮动图片。
+要求：Windows、Microsoft Excel、.NET Framework 4.8、Microsoft Visual Studio Tools for Office Runtime。
+说明：当前版本使用项目开发证书签名，Windows 可能显示未知发布者或证书确认提示。

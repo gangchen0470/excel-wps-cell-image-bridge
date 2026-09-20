@@ -1,5 +1,11 @@
 # Excel / WPS 单元格图片兼容工具
 
+## Excel 插件下载
+
+普通用户请从 [GitHub Releases](https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/tag/v1.0.1) 下载 `CellImageBridgeVsto-1.0.1.zip`，完整解压后双击 `CellImageBridgeVsto.vsto`，在 Microsoft Office 安装窗口中点击“安装”。不要下载绿色 **Code → Download ZIP**，该文件是项目源码。
+
+ZIP 内含完整的 VSTO 安装文件，并在仓库的 [`vsto/`](https://github.com/gangchen0470/excel-wps-cell-image-bridge/tree/v1/wps-floating-foundation/vsto) 目录保留同一份内容。安装包必须保留 `Application Files` 目录；公开发布前应将当前开发测试证书替换为可信代码签名证书。
+
 V1 主线：**WPS DISPIMG / Excel Place in Cell → Excel 和 WPS 可见的标准浮动图片**。项目包含 Python 3.10+ OOXML 转换器与浏览器/NAS 页面。
 
 ## 恢复规则

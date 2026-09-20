@@ -6,6 +6,11 @@ build/
 dist/
 plugins/excel-native/bin/
 /plugins/excel-native/
+/plugins/excel-vsto/bin/
+/plugins/excel-vsto/obj/
+/plugins/excel-vsto/publish/
+/plugins/excel-vsto/*.pfx
+/plugins/excel-vsto/*-result.log
 /安装VSTO开发工具.cmd
 work/
 outputs/
