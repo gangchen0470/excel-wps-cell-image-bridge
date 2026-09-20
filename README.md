@@ -1,10 +1,31 @@
 # Excel / WPS 单元格图片兼容工具
 
-## Excel 插件下载
+## Excel 插件下载与安装
 
-普通用户请从 [GitHub Releases](https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/tag/v1.0.1) 下载 `CellImageBridgeVsto-1.0.1.zip`，完整解压后双击 `CellImageBridgeVsto.vsto`，在 Microsoft Office 安装窗口中点击“安装”。不要下载绿色 **Code → Download ZIP**，该文件是项目源码。
+Windows 和 Microsoft Excel 用户请下载：
 
-ZIP 内含完整的 VSTO 安装文件，并在仓库的 [`vsto/`](https://github.com/gangchen0470/excel-wps-cell-image-bridge/tree/v1/wps-floating-foundation/vsto) 目录保留同一份内容。安装包必须保留 `Application Files` 目录；公开发布前应将当前开发测试证书替换为可信代码签名证书。
+**[CellImageBridgeVsto-1.0.1.zip](https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/download/v1.0.1/CellImageBridgeVsto-1.0.1.zip)**
+
+1. 将 ZIP **完整解压**到本地文件夹，不要直接在压缩包内运行。
+2. 关闭所有 Microsoft Excel 窗口。
+3. 双击 `CellImageBridgeVsto.vsto`。
+4. 在“Microsoft Office 自定义项安装程序”中点击“安装”。
+5. 重新打开 Excel，功能区中应出现 **图片修复** 选项卡。
+
+请不要下载绿色 **Code → Download ZIP**，那是项目源码，不是 Excel 插件安装包。
+
+运行要求：Windows、Microsoft Excel、.NET Framework 4.8 和 Microsoft Visual Studio Tools for Office Runtime。当前发布包使用项目开发证书签名，Windows 可能显示证书或发布者确认提示。
+
+### 在 Excel 中使用
+
+1. 先用 Excel 打开从 WPS 保存的本地 `.xlsx` 原文件；转换前不要用 Excel 覆盖保存原文件。
+2. 打开 **图片修复** 选项卡，可先点击 **检测 WPS 图片**。
+3. 点击 **一键转换**，在当前工作簿中检查图片效果。
+4. 点击 **另存为兼容版**，使用新文件名保存 `.xlsx` 副本。
+
+如果安装后没有出现选项卡，请在 Excel 中打开“文件 → 选项 → 加载项 → COM 加载项”，确认 `CellImageBridgeVsto` 已启用。
+
+ZIP 内含完整的 VSTO 安装文件；仓库的 [`vsto/`](https://github.com/gangchen0470/excel-wps-cell-image-bridge/tree/main/vsto) 目录保留同一份内容。`Application Files` 目录必须和 `CellImageBridgeVsto.vsto` 一起保留。
 
 V1 主线：**WPS DISPIMG / Excel Place in Cell → Excel 和 WPS 可见的标准浮动图片**。项目包含 Python 3.10+ OOXML 转换器与浏览器/NAS 页面。
 
@@ -42,6 +63,7 @@ src/cell_image_compat/
   cli.py            # 检测及转换入口
 plugins/
   excel/            # 已有 Excel 加载项清单
+  excel-vsto/       # Microsoft Excel VSTO 插件源码和发布脚本
   wps/              # 已有 WPS 外壳
   shared/           # 已有共享任务窗格
   service.py        # 本地开发服务
@@ -51,6 +73,7 @@ tests/
   test_v1.py        # 无外部样本依赖的回归测试
   test_samples.py   # 既有单元测试及可选真实样本测试
 docs/DEVELOPMENT.md  # 开发路线和客户端验收
+vsto/                # 已签名的 VSTO 安装目录
 ```
 
 沿用已有包结构，不建立重复的空目录。仓库已有原生双向互转实验能力，本轮暂不扩展，不作为 V1 验收目标。
