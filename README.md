@@ -8,7 +8,7 @@ Windows 和 Microsoft Excel 用户请下载：
 
 1. 将 ZIP **完整解压**到本地文件夹，不要直接在压缩包内运行。
 2. 关闭所有 Microsoft Excel 窗口。
-3. 双击 `CellImageBridgeVsto.vsto`。
+3. 双击 `Install-ExcelAddin.cmd`；它会先卸载从其他目录安装的旧版，再打开新版安装程序。首次安装也可直接双击 `CellImageBridgeVsto.vsto`。
 4. 在“Microsoft Office 自定义项安装程序”中点击“安装”。
 5. 重新打开 Excel，功能区中应出现 **图片修复** 选项卡。
 
@@ -24,6 +24,8 @@ Windows 和 Microsoft Excel 用户请下载：
 4. 点击 **另存为兼容版**，使用新文件名保存 `.xlsx` 副本。
 
 如果安装后没有出现选项卡，请在 Excel 中打开“文件 → 选项 → 加载项 → COM 加载项”，确认 `CellImageBridgeVsto` 已启用。
+
+如果直接双击 `.vsto` 时提示“已安装的自定义项不能从该位置升级”，说明旧版来自另一个目录。关闭 Excel 后运行 `Install-ExcelAddin.cmd` 即可先卸载旧版并重新安装。
 
 ZIP 内含完整的 VSTO 安装文件；仓库的 [`vsto/`](https://github.com/gangchen0470/excel-wps-cell-image-bridge/tree/main/vsto) 目录保留同一份内容。`Application Files` 目录必须和 `CellImageBridgeVsto.vsto` 一起保留。
 
