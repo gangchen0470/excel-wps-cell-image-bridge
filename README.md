@@ -4,7 +4,7 @@
 
 Windows 和 Microsoft Excel 用户请下载：
 
-**[CellImageBridgeVsto-1.0.2.zip](https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/download/v1.0.2/CellImageBridgeVsto-1.0.2.zip)**
+**[CellImageBridgeVsto-1.0.3.zip](https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/download/v1.0.3/CellImageBridgeVsto-1.0.3.zip)**
 
 1. 将 ZIP **完整解压**到本地文件夹，不要直接在压缩包内运行。
 2. 关闭所有 Microsoft Excel 窗口。
@@ -25,7 +25,7 @@ Windows 和 Microsoft Excel 用户请下载：
 
 如果安装后没有出现选项卡，请在 Excel 中打开“文件 → 选项 → 加载项 → COM 加载项”，确认 `CellImageBridgeVsto` 已启用。
 
-如果直接双击 `.vsto` 时提示“已安装的自定义项不能从该位置升级”，说明下载的仍是 `1.0.1` 旧包。请下载 `1.0.2` 或更高版本；新版部署清单已提高版本号，可从新目录升级。
+如果直接双击 `.vsto` 时提示“已安装的自定义项不能从该位置升级”，说明下载的仍是 `1.0.1` 旧包。请下载 `1.0.3` 或更高版本；新版部署清单已提高版本号，可从新目录升级。
 
 ZIP 内含完整的 VSTO 安装文件；仓库的 [`vsto/`](https://github.com/gangchen0470/excel-wps-cell-image-bridge/tree/main/vsto) 目录保留同一份内容。`Application Files` 目录必须和 `CellImageBridgeVsto.vsto` 一起保留。
 

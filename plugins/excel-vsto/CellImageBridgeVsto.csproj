@@ -38,7 +38,7 @@
     <PublishUrl>$(MSBuildProjectDirectory)\publish\</PublishUrl>
     <InstallUrl>https://raw.githubusercontent.com/gangchen0470/excel-wps-cell-image-bridge/v1/wps-floating-foundation/vsto/</InstallUrl>
     <Install>true</Install>
-    <ApplicationVersion>1.0.2.0</ApplicationVersion>
+    <ApplicationVersion>1.0.3.0</ApplicationVersion>
     <ApplicationRevision>0</ApplicationRevision>
     <UpdateEnabled>true</UpdateEnabled>
     <UpdateMode>Background</UpdateMode>

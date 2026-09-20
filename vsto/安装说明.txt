@@ -1,4 +1,4 @@
-Cell Image Bridge VSTO 1.0.2（Microsoft Excel 插件）
+Cell Image Bridge VSTO 1.0.1（Microsoft Excel 插件）
 
 安装方法：
 1. 完整解压本 ZIP，不能直接在压缩包内运行。

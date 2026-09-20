@@ -1,1 +1,3 @@
 vsto/*.vsto -whitespace
+vsto/**/*.vsto -whitespace
+vsto/**/*.manifest -whitespace
