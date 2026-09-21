@@ -16,7 +16,7 @@ namespace CellImageBridgeVsto {
     public partial class ThisAddIn {
         private dynamic app;
         private bool busy;
-        private const string CurrentVersion = "1.0.7";
+        private const string CurrentVersion = "1.0.8";
         private const string UpdateManifestUrl = "https://raw.githubusercontent.com/gangchen0470/excel-wps-cell-image-bridge/main/update.json";
         private static readonly Regex Formula = new Regex(@"^\s*=?\s*(?:_xlfn\.)?DISPIMG\s*\(\s*""([^""]+)""\s*[,;]\s*1\s*\)\s*$", RegexOptions.IgnoreCase);
         private class Picture { public byte[] Bytes; public int Width; public int Height; public string Extension; }

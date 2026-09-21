@@ -12,7 +12,7 @@
 
 当前版本下载地址：
 
-`https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/download/v1.0.7/CellImageBridgeVsto-1.0.7.zip`
+`https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/download/v1.0.8/CellImageBridgeVsto-1.0.8.zip`
 
 发布 ZIP 还包含 `Install-ExcelAddin.cmd` 和 `Install-ExcelAddin.ps1`。安装器会读取 Excel COM 加载注册项，卸载从其他本地路径安装的旧版，解决 VSTO 的“不能从该位置升级”错误。
 
