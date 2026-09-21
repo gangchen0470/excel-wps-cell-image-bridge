@@ -20,9 +20,9 @@ echo Copying package to a short staging path...
 if exist "%OUTPUT%" rmdir /s /q "%OUTPUT%"
 mkdir "%OUTPUT%" >nul 2>&1
 xcopy "%SOURCE%\*" "%OUTPUT%\" /e /i /y >nul
-copy /y "%~dp0bin\Release\Microsoft.Office.Tools.Common.v4.0.Utilities.dll" "%OUTPUT%\Application Files\CellImageBridgeVsto_1_0_3_0\Microsoft.Office.Tools.Common.v4.0.Utilities.dll.deploy" >nul
+copy /y "%~dp0bin\Release\Microsoft.Office.Tools.Common.v4.0.Utilities.dll" "%OUTPUT%\Application Files\CellImageBridgeVsto_1_0_4_0\Microsoft.Office.Tools.Common.v4.0.Utilities.dll.deploy" >nul
 if not exist "%OUTPUT%\CellImageBridgeVsto.vsto" goto failed
-if not exist "%OUTPUT%\Application Files\CellImageBridgeVsto_1_0_3_0\Microsoft.Office.Tools.Common.v4.0.Utilities.dll.deploy" goto failed
+if not exist "%OUTPUT%\Application Files\CellImageBridgeVsto_1_0_4_0\Microsoft.Office.Tools.Common.v4.0.Utilities.dll.deploy" goto failed
 
 echo GitHub VSTO package generated successfully:
 echo %OUTPUT%

@@ -19,3 +19,5 @@ outputs/
 *.xlsm
 *.log
 
+
+/.test-tmp/
