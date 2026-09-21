@@ -2,9 +2,18 @@ $ErrorActionPreference = "Stop"
 
 $excel = Get-Process EXCEL -ErrorAction SilentlyContinue
 if ($excel) {
-    Write-Host "Please close all Microsoft Excel windows, then run this installer again." -ForegroundColor Yellow
-    Read-Host "Press Enter to exit"
-    exit 1
+    $visibleExcel = @($excel | Where-Object { $_.MainWindowHandle -ne 0 })
+    $backgroundExcel = @($excel | Where-Object { $_.MainWindowHandle -eq 0 })
+    if ($visibleExcel.Count -gt 0) {
+        Write-Host "Please close all Microsoft Excel windows, then run this installer again." -ForegroundColor Yellow
+        Read-Host "Press Enter to exit"
+        exit 1
+    }
+    if ($backgroundExcel.Count -gt 0) {
+        Write-Host "Closing leftover background Excel processes..."
+        $backgroundExcel | Stop-Process -Force
+        Start-Sleep -Milliseconds 500
+    }
 }
 
 $installerCandidates = @(

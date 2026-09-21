@@ -28,9 +28,9 @@ if exist "%INSTALL_ROOT%" rmdir /s /q "%INSTALL_ROOT%"
 mkdir "%INSTALL_ROOT%" >nul 2>&1
 xcopy "%PUBLISH_SOURCE%\*" "%INSTALL_ROOT%\" /e /i /y >nul
 if errorlevel 1 goto copy_failed
-copy /y "%~dp0bin\Release\Microsoft.Office.Tools.Common.v4.0.Utilities.dll" "%INSTALL_ROOT%\Application Files\CellImageBridgeVsto_1_0_1_0\Microsoft.Office.Tools.Common.v4.0.Utilities.dll.deploy" >nul
+copy /y "%~dp0bin\Release\Microsoft.Office.Tools.Common.v4.0.Utilities.dll" "%INSTALL_ROOT%\Application Files\CellImageBridgeVsto_1_0_6_0\Microsoft.Office.Tools.Common.v4.0.Utilities.dll.deploy" >nul
 if errorlevel 1 goto copy_failed
-if not exist "%INSTALL_ROOT%\Application Files\CellImageBridgeVsto_1_0_1_0\Microsoft.Office.Tools.Common.v4.0.Utilities.dll.deploy" goto copy_failed
+if not exist "%INSTALL_ROOT%\Application Files\CellImageBridgeVsto_1_0_6_0\Microsoft.Office.Tools.Common.v4.0.Utilities.dll.deploy" goto copy_failed
 if not exist "%MANIFEST%" goto manifest_missing
 
 echo Removing legacy COM registration...

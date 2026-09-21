@@ -16,7 +16,7 @@ namespace CellImageBridgeVsto {
     public partial class ThisAddIn {
         private dynamic app;
         private bool busy;
-        private const string CurrentVersion = "1.0.5";
+        private const string CurrentVersion = "1.0.6";
         private const string UpdateManifestUrl = "https://raw.githubusercontent.com/gangchen0470/excel-wps-cell-image-bridge/main/update.json";
         private static readonly Regex Formula = new Regex(@"^\s*=?\s*(?:_xlfn\.)?DISPIMG\s*\(\s*""([^""]+)""\s*[,;]\s*1\s*\)\s*$", RegexOptions.IgnoreCase);
         private class Picture { public byte[] Bytes; public int Width; public int Height; public string Extension; }
@@ -36,10 +36,11 @@ namespace CellImageBridgeVsto {
             return @"<customUI xmlns='http://schemas.microsoft.com/office/2009/07/customui'><ribbon><tabs><tab id='CellImageBridgeTab' label='图片修复'><group id='CellImageBridgeGroup' label='Excel / WPS 单元格图片'><button id='DetectImages' label='检测单元格图片' size='large' imageMso='FindDialog' onAction='Detect'/><button id='RepairImages' label='一键转换' size='large' imageMso='PictureInsertFromFile' onAction='Repair'/><button id='SaveImages' label='修复并另存兼容版' size='large' imageMso='FileSaveAs' onAction='SaveCopy'/></group><group id='CellImageBridgeUpdateGroup' label='插件'><button id='CheckUpdate' label='检查更新' size='large' imageMso='RefreshAll' onAction='CheckUpdate'/></group></tab></tabs></ribbon></customUI>";
         }
         private static void Notify(string text) { MessageBox.Show(text, "Excel / WPS 图片修复", MessageBoxButtons.OK, MessageBoxIcon.Information); }
-        public void Detect(object control) { try { var jobs = Plan((object)Workbook()); int wps = jobs.Count(x => x.Source == "wps"); Notify("共检测到 " + jobs.Count + " 张单元格图片。\nExcel：" + (jobs.Count - wps) + " 张\nWPS：" + wps + " 张"); } catch (Exception e) { Notify(e.Message); } }
-        public void Repair(object control) { try { int count = RepairActiveWorkbook(); Notify(count == 0 ? "未发现需要转换的 Excel 或 WPS 单元格图片。" : "已转换 " + count + " 张图片。\n尚未保存，请检查后使用“修复并另存兼容版”。"); } catch (Exception e) { Notify("转换未完成：" + e.Message); } }
+        public void Detect(object control) { try { var jobs = Plan((object)Workbook()); int wps = jobs.Count(x => x.Source == "wps"); Trace("Detect: total=" + jobs.Count + ", wps=" + wps); Notify("共检测到 " + jobs.Count + " 张单元格图片。\nExcel：" + (jobs.Count - wps) + " 张\nWPS：" + wps + " 张"); } catch (Exception e) { Trace("Detect failed: " + e); Notify(e.Message); } }
+        public void Repair(object control) { try { int count = RepairActiveWorkbook(); Trace("Repair: converted=" + count); Notify(count == 0 ? "未发现需要转换的 Excel 或 WPS 单元格图片。" : "已转换 " + count + " 张图片。\n尚未保存，请检查后使用“修复并另存兼容版”。"); } catch (Exception e) { Trace("Repair failed: " + e); Notify("转换未完成：" + e.Message); } }
         public void CheckUpdate(object control) {
             try {
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
                 var request = WebRequest.Create(UpdateManifestUrl); request.Timeout = 10000;
                 string json; using (var response = request.GetResponse()) using (var reader = new StreamReader(response.GetResponseStream())) json = reader.ReadToEnd();
                 var versionMatch = Regex.Match(json, "\\\"version\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"");
@@ -49,7 +50,7 @@ namespace CellImageBridgeVsto {
                 if (latest <= current) { Notify("当前已是最新版本：" + CurrentVersion); return; }
                 if (MessageBox.Show("发现新版本 " + latest + "（当前 " + current + "）。\n是否打开下载页面？", "插件更新", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
                     Process.Start(new ProcessStartInfo(urlMatch.Groups[1].Value) { UseShellExecute = true });
-            } catch (Exception e) { Notify("检查更新失败：" + e.Message); }
+            } catch (Exception e) { Trace("CheckUpdate failed: " + e); Notify("检查更新失败：" + e.Message + "\n\n可手动打开：\nhttps://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/latest"); }
         }
         public void SaveCopy(object control) {
             try {
@@ -183,7 +184,8 @@ namespace CellImageBridgeVsto {
             foreach (var item in LoadExcelPictures((string)wb.FullName)) {
                 dynamic sheet = wb.Worksheets[item.Sheet];
                 if ((bool)sheet.ProtectContents) throw new Exception("请先取消工作表保护：" + item.Sheet);
-                dynamic cell = sheet.Range[item.Cell], area = cell.MergeArea;
+                dynamic originalCell = sheet.Range[item.Cell], area = originalCell.MergeArea;
+                dynamic cell = area.Cells[1, 1];
                 if ((double)area.Width <= 3 || (double)area.Height <= 3) throw new Exception("单元格区域太小或已隐藏：" + item.Sheet + "!" + item.Cell);
                 jobs.Add(new Job { Cell = cell, Area = area, Picture = item.Picture, Source = "excel" });
             }
@@ -209,6 +211,10 @@ namespace CellImageBridgeVsto {
                     double width = job.Area.Width, height = job.Area.Height;
                     double scale = Math.Min((width - 3) / job.Picture.Width, (height - 3) / job.Picture.Height);
                     double drawW = job.Picture.Width * scale, drawH = job.Picture.Height * scale;
+                    // Clear the complete cell or merged area before adding the floating picture.
+                    // Clearing an Excel in-cell image after AddPicture can remove the new shape too.
+                    job.Area.ClearContents();
+                    job.Cleared = true;
                     // Excel uses points: 2 pixels at 96 DPI = 1.5 points per side.
                     job.Shape = job.Cell.Worksheet.Shapes.AddPicture(imagePath, 0, -1,
                         (double)job.Area.Left + (width - drawW) / 2, (double)job.Area.Top + (height - drawH) / 2, drawW, drawH);
@@ -216,7 +222,6 @@ namespace CellImageBridgeVsto {
                     job.Shape.Placement = 1; // xlMoveAndSize
                     job.Shape.AlternativeText = (job.Source == "excel" ? "Excel" : "WPS") + " 单元格图片：" + job.Cell.Address;
                 }
-                foreach (var job in jobs) { if (job.Source == "excel") job.Cell.ClearContents(); else job.Cell.Formula = ""; job.Cleared = true; }
                 return jobs.Count;
             } catch (Exception original) {
                 var errors = new List<string>();
@@ -224,7 +229,9 @@ namespace CellImageBridgeVsto {
                     try { if (job.Cleared && job.Source == "wps") job.Cell.Formula = job.Formula; } catch (Exception e) { errors.Add(e.Message); }
                     try { if (job.Shape != null) job.Shape.Delete(); } catch (Exception e) { errors.Add(e.Message); }
                 }
+                Trace("Conversion failed: " + original);
                 if (errors.Count > 0) throw new Exception(original.Message + "\n部分回滚失败，请不要保存并重新打开原文件。\n" + String.Join("\n", errors));
+                if (jobs.Any(x => x.Cleared && x.Source == "excel")) throw new Exception(original.Message + "\nExcel 单元格图片已从当前编辑会话清除，请不要保存，关闭并重新打开原文件。", original);
                 throw;
             } finally {
                 app.EnableEvents = events;
