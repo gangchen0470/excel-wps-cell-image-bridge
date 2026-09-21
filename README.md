@@ -4,7 +4,7 @@
 
 Windows 和 Microsoft Excel 用户请下载：
 
-**[CellImageBridgeVsto-1.0.4.zip](https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/download/v1.0.4/CellImageBridgeVsto-1.0.4.zip)**
+**[CellImageBridgeVsto-1.0.5.zip](https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/download/v1.0.5/CellImageBridgeVsto-1.0.5.zip)**
 
 1. 将 ZIP **完整解压**到本地文件夹，不要直接在压缩包内运行。
 2. 关闭所有 Microsoft Excel 窗口。
@@ -24,6 +24,8 @@ Windows 和 Microsoft Excel 用户请下载：
 4. 点击 **另存为兼容版**，使用新文件名保存 `.xlsx` 副本。
 
 插件同时识别 WPS `DISPIMG` 和新版 Excel“置于单元格”图片。**修复并另存兼容版**会先将两类图片转换为普通浮动图片，再保存新副本；浮动图片可在 WPS 和不支持单元格图片的旧版 Excel 中显示。原文件不会被覆盖。
+
+点击功能区中的 **检查更新**，插件会读取仓库根目录的 `update.json`。发现新版本时可直接打开对应安装包下载地址。
 
 如果安装后没有出现选项卡，请在 Excel 中打开“文件 → 选项 → 加载项 → COM 加载项”，确认 `CellImageBridgeVsto` 已启用。
 

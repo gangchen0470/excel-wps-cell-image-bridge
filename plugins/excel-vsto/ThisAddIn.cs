@@ -4,6 +4,8 @@ using System.Drawing;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Diagnostics;
+using System.Net;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
@@ -14,6 +16,8 @@ namespace CellImageBridgeVsto {
     public partial class ThisAddIn {
         private dynamic app;
         private bool busy;
+        private const string CurrentVersion = "1.0.5";
+        private const string UpdateManifestUrl = "https://raw.githubusercontent.com/gangchen0470/excel-wps-cell-image-bridge/main/update.json";
         private static readonly Regex Formula = new Regex(@"^\s*=?\s*(?:_xlfn\.)?DISPIMG\s*\(\s*""([^""]+)""\s*[,;]\s*1\s*\)\s*$", RegexOptions.IgnoreCase);
         private class Picture { public byte[] Bytes; public int Width; public int Height; public string Extension; }
         private class PackageJob { public string Sheet; public string Cell; public Picture Picture; }
@@ -29,11 +33,24 @@ namespace CellImageBridgeVsto {
 
         public string GetCustomUI(string ribbonID) {
             Trace("GetCustomUI " + ribbonID);
-            return @"<customUI xmlns='http://schemas.microsoft.com/office/2009/07/customui'><ribbon><tabs><tab id='CellImageBridgeTab' label='图片修复'><group id='CellImageBridgeGroup' label='Excel / WPS 单元格图片'><button id='DetectImages' label='检测单元格图片' size='large' imageMso='FindDialog' onAction='Detect'/><button id='RepairImages' label='一键转换' size='large' imageMso='PictureInsertFromFile' onAction='Repair'/><button id='SaveImages' label='修复并另存兼容版' size='large' imageMso='FileSaveAs' onAction='SaveCopy'/></group></tab></tabs></ribbon></customUI>";
+            return @"<customUI xmlns='http://schemas.microsoft.com/office/2009/07/customui'><ribbon><tabs><tab id='CellImageBridgeTab' label='图片修复'><group id='CellImageBridgeGroup' label='Excel / WPS 单元格图片'><button id='DetectImages' label='检测单元格图片' size='large' imageMso='FindDialog' onAction='Detect'/><button id='RepairImages' label='一键转换' size='large' imageMso='PictureInsertFromFile' onAction='Repair'/><button id='SaveImages' label='修复并另存兼容版' size='large' imageMso='FileSaveAs' onAction='SaveCopy'/></group><group id='CellImageBridgeUpdateGroup' label='插件'><button id='CheckUpdate' label='检查更新' size='large' imageMso='RefreshAll' onAction='CheckUpdate'/></group></tab></tabs></ribbon></customUI>";
         }
         private static void Notify(string text) { MessageBox.Show(text, "Excel / WPS 图片修复", MessageBoxButtons.OK, MessageBoxIcon.Information); }
         public void Detect(object control) { try { var jobs = Plan((object)Workbook()); int wps = jobs.Count(x => x.Source == "wps"); Notify("共检测到 " + jobs.Count + " 张单元格图片。\nExcel：" + (jobs.Count - wps) + " 张\nWPS：" + wps + " 张"); } catch (Exception e) { Notify(e.Message); } }
         public void Repair(object control) { try { int count = RepairActiveWorkbook(); Notify(count == 0 ? "未发现需要转换的 Excel 或 WPS 单元格图片。" : "已转换 " + count + " 张图片。\n尚未保存，请检查后使用“修复并另存兼容版”。"); } catch (Exception e) { Notify("转换未完成：" + e.Message); } }
+        public void CheckUpdate(object control) {
+            try {
+                var request = WebRequest.Create(UpdateManifestUrl); request.Timeout = 10000;
+                string json; using (var response = request.GetResponse()) using (var reader = new StreamReader(response.GetResponseStream())) json = reader.ReadToEnd();
+                var versionMatch = Regex.Match(json, "\\\"version\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"");
+                var urlMatch = Regex.Match(json, "\\\"downloadUrl\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"");
+                if (!versionMatch.Success || !urlMatch.Success) throw new Exception("更新信息格式无效。");
+                var latest = new Version(versionMatch.Groups[1].Value); var current = new Version(CurrentVersion);
+                if (latest <= current) { Notify("当前已是最新版本：" + CurrentVersion); return; }
+                if (MessageBox.Show("发现新版本 " + latest + "（当前 " + current + "）。\n是否打开下载页面？", "插件更新", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                    Process.Start(new ProcessStartInfo(urlMatch.Groups[1].Value) { UseShellExecute = true });
+            } catch (Exception e) { Notify("检查更新失败：" + e.Message); }
+        }
         public void SaveCopy(object control) {
             try {
                 dynamic wb = Workbook();
@@ -245,6 +262,7 @@ namespace CellImageBridgeVsto {
         public void Detect(object control) { addIn.Detect(control); }
         public void Repair(object control) { addIn.Repair(control); }
         public void SaveCopy(object control) { addIn.SaveCopy(control); }
+        public void CheckUpdate(object control) { addIn.CheckUpdate(control); }
     }
 }
 
