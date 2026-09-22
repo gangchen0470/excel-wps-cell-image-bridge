@@ -16,8 +16,9 @@ namespace CellImageBridgeVsto {
     public partial class ThisAddIn {
         private dynamic app;
         private bool busy;
-        private const string CurrentVersion = "1.0.8";
-        private const string UpdateManifestUrl = "https://raw.githubusercontent.com/gangchen0470/excel-wps-cell-image-bridge/main/update.json";
+        private const string CurrentVersion = "1.0.9";
+        private const string GitHubUpdateManifestUrl = "https://raw.githubusercontent.com/gangchen0470/excel-wps-cell-image-bridge/main/update.json";
+        private const string GiteeUpdateManifestUrl = "https://gitee.com/chengang0470/excel-wps-cell-image-bridge/raw/master/update.json";
         private static readonly Regex Formula = new Regex(@"^\s*=?\s*(?:_xlfn\.)?DISPIMG\s*\(\s*""([^""]+)""\s*[,;]\s*1\s*\)\s*$", RegexOptions.IgnoreCase);
         private class Picture { public byte[] Bytes; public int Width; public int Height; public string Extension; }
         private class PackageJob { public string Sheet; public string Cell; public Picture Picture; }
@@ -39,18 +40,38 @@ namespace CellImageBridgeVsto {
         public void Detect(object control) { try { var jobs = Plan((object)Workbook()); int wps = jobs.Count(x => x.Source == "wps"); Trace("Detect: total=" + jobs.Count + ", wps=" + wps); Notify("共检测到 " + jobs.Count + " 张单元格图片。\nExcel：" + (jobs.Count - wps) + " 张\nWPS：" + wps + " 张"); } catch (Exception e) { Trace("Detect failed: " + e); Notify(e.Message); } }
         public void Repair(object control) { try { int count = RepairActiveWorkbook(); Trace("Repair: converted=" + count); Notify(count == 0 ? "未发现需要转换的 Excel 或 WPS 单元格图片。" : "已转换 " + count + " 张图片。\n尚未保存，请检查后使用“修复并另存兼容版”。"); } catch (Exception e) { Trace("Repair failed: " + e); Notify("转换未完成：" + e.Message); } }
         public void CheckUpdate(object control) {
-            try {
-                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
-                var request = WebRequest.Create(UpdateManifestUrl); request.Timeout = 10000;
-                string json; using (var response = request.GetResponse()) using (var reader = new StreamReader(response.GetResponseStream())) json = reader.ReadToEnd();
-                var versionMatch = Regex.Match(json, "\\\"version\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"");
-                var urlMatch = Regex.Match(json, "\\\"downloadUrl\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"");
-                if (!versionMatch.Success || !urlMatch.Success) throw new Exception("更新信息格式无效。");
-                var latest = new Version(versionMatch.Groups[1].Value); var current = new Version(CurrentVersion);
-                if (latest <= current) { Notify("当前已是最新版本：" + CurrentVersion); return; }
-                if (MessageBox.Show("发现新版本 " + latest + "（当前 " + current + "）。\n是否打开下载页面？", "插件更新", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
-                    Process.Start(new ProcessStartInfo(urlMatch.Groups[1].Value) { UseShellExecute = true });
-            } catch (Exception e) { Trace("CheckUpdate failed: " + e); Notify("检查更新失败：" + e.Message + "\n\n可手动打开：\nhttps://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/latest"); }
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+            Exception lastError = null;
+            foreach (var source in new[] { new { Name = "GitHub", Manifest = GitHubUpdateManifestUrl, DownloadField = "githubDownloadUrl" }, new { Name = "Gitee", Manifest = GiteeUpdateManifestUrl, DownloadField = "giteeDownloadUrl" } }) {
+                try {
+                    var request = WebRequest.Create(source.Manifest);
+                    request.Timeout = 5000;
+                    string json;
+                    using (var response = request.GetResponse())
+                    using (var reader = new StreamReader(response.GetResponseStream())) json = reader.ReadToEnd();
+                    string versionText = JsonField(json, "version");
+                    string downloadUrl = JsonField(json, source.DownloadField);
+                    if (String.IsNullOrEmpty(downloadUrl)) downloadUrl = JsonField(json, "downloadUrl");
+                    Uri download;
+                    if (String.IsNullOrEmpty(versionText) || !Uri.TryCreate(downloadUrl, UriKind.Absolute, out download) || download.Scheme != Uri.UriSchemeHttps)
+                        throw new Exception("更新信息格式无效。");
+                    var latest = new Version(versionText);
+                    var current = new Version(CurrentVersion);
+                    Trace("CheckUpdate: source=" + source.Name + ", latest=" + latest);
+                    if (latest <= current) { Notify("当前已是最新版本：" + CurrentVersion + "（" + source.Name + "）"); return; }
+                    if (MessageBox.Show("发现新版本 " + latest + "（当前 " + current + "）。\n更新源：" + source.Name + "\n是否打开下载页面？", "插件更新", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                        Process.Start(new ProcessStartInfo(download.AbsoluteUri) { UseShellExecute = true });
+                    return;
+                } catch (Exception e) {
+                    lastError = e;
+                    Trace("CheckUpdate " + source.Name + " failed: " + e);
+                }
+            }
+            Notify("检查更新失败：GitHub 和 Gitee 均不可用。\n" + lastError.Message + "\n\n可手动打开：\nhttps://gitee.com/chengang0470/excel-wps-cell-image-bridge");
+        }
+        private static string JsonField(string json, string field) {
+            var match = Regex.Match(json, "\\\"" + Regex.Escape(field) + "\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"");
+            return match.Success ? match.Groups[1].Value : null;
         }
         public void SaveCopy(object control) {
             try {

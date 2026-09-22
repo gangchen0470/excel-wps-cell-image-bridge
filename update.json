@@ -1,5 +1,7 @@
 {
-  "version": "1.0.8",
-  "downloadUrl": "https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/download/v1.0.8/CellImageBridgeVsto-1.0.8.zip",
-  "releasePage": "https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/tag/v1.0.8"
+  "version": "1.0.9",
+  "githubDownloadUrl": "https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/download/v1.0.9/CellImageBridgeVsto-1.0.9.zip",
+  "giteeDownloadUrl": "https://gitee.com/chengang0470/excel-wps-cell-image-bridge/raw/master/downloads/CellImageBridgeVsto-1.0.9.zip",
+  "downloadUrl": "https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/download/v1.0.9/CellImageBridgeVsto-1.0.9.zip",
+  "releasePage": "https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/tag/v1.0.9"
 }
