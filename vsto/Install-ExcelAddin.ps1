@@ -59,4 +59,28 @@ foreach ($oldManifest in ($manifestsToRemove | Select-Object -Unique)) {
 Write-Host "Opening the Microsoft Office add-in installer..."
 if ($Silent) { & $installer /Install $manifest /Silent }
 else { & $installer /Install $manifest }
-exit $LASTEXITCODE
+$installExitCode = $LASTEXITCODE
+
+function Test-InstalledManifest {
+    foreach ($registryPath in $registryPaths) {
+        if (-not (Test-Path $registryPath)) { continue }
+        $installed = (Get-ItemProperty -Path $registryPath -Name Manifest -ErrorAction SilentlyContinue).Manifest
+        if (-not $installed) { continue }
+        try {
+            $installedPath = ([Uri]($installed -replace "\|vstolocal$", "")).LocalPath
+            if ([string]::Equals($installedPath, $manifest, [stringcomparison]::OrdinalIgnoreCase)) { return $true }
+        } catch { }
+    }
+    return $false
+}
+
+if ($Silent -and -not (Test-InstalledManifest)) {
+    Write-Host "Silent installation needs Office confirmation. Opening the installer..."
+    & $installer /Install $manifest
+    $installExitCode = $LASTEXITCODE
+}
+if ($installExitCode -ne 0 -or -not (Test-InstalledManifest)) {
+    Write-Host "VSTO installation did not register the new manifest." -ForegroundColor Red
+    exit 1
+}
+exit 0

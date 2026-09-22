@@ -17,7 +17,7 @@ namespace CellImageBridgeVsto {
     public partial class ThisAddIn {
         private dynamic app;
         private bool busy;
-        private const string CurrentVersion = "1.0.11";
+        private const string CurrentVersion = "1.0.12";
         private const string GitHubUpdateManifestUrl = "https://api.github.com/repos/gangchen0470/excel-wps-cell-image-bridge/contents/update.json?ref=main";
         private const string GiteeUpdateManifestUrl = "https://gitee.com/chengang0470/excel-wps-cell-image-bridge/raw/master/update.json";
         private static readonly Regex Formula = new Regex(@"^\s*=?\s*(?:_xlfn\.)?DISPIMG\s*\(\s*""([^""]+)""\s*[,;]\s*1\s*\)\s*$", RegexOptions.IgnoreCase);
@@ -65,12 +65,12 @@ namespace CellImageBridgeVsto {
                     var current = new Version(CurrentVersion);
                     Trace("CheckUpdate: source=" + source.Name + ", latest=" + latest);
                     if (latest <= current) { Notify("当前已是最新版本：" + CurrentVersion + "（" + source.Name + "）"); return; }
-                    if (MessageBox.Show("发现新版本 " + latest + "（当前 " + current + "）。\n更新源：" + source.Name + "\n将下载并校验安装包；下载后请保存并关闭所有 Excel 窗口，更新程序会自动安装。\n\n现在开始吗？", "插件在线更新", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+                    if (MessageBox.Show("发现新版本 " + latest + "（当前 " + current + "）。\n更新源：" + source.Name + "\n将下载并校验安装包；下载后请保存并关闭所有 Excel 窗口。若 Office 要求确认，请在安装窗口点击“安装”。\n\n现在开始吗？", "插件在线更新", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
                     string packageFolder = DownloadUpdate(download, latest, expectedHash);
                     string helper = Path.Combine(packageFolder, "Update-AfterExcel.ps1");
                     if (!File.Exists(helper)) throw new Exception("安装包缺少自动更新程序。");
                     Process.Start(new ProcessStartInfo("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"" + helper + "\" -ExcelProcessId " + Process.GetCurrentProcess().Id) { UseShellExecute = false, CreateNoWindow = true });
-                    Notify("安装包已下载并校验。请保存工作簿并退出所有 Excel 窗口；退出后将自动安装 " + latest + "。安装结果会单独提示。");
+                    Notify("安装包已下载并校验。请保存工作簿并退出所有 Excel 窗口；退出后将安装 " + latest + "。若出现 Office 确认窗口，请点击“安装”。安装结果会单独提示。");
                     return;
                 } catch (Exception e) {
                     lastError = e;
