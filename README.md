@@ -4,9 +4,9 @@
 
 Windows 和 Microsoft Excel 用户请下载：
 
-**[GitHub 下载 CellImageBridgeVsto-1.0.9.zip](https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/download/v1.0.9/CellImageBridgeVsto-1.0.9.zip)**
+**[GitHub 下载 CellImageBridgeVsto-1.0.10.zip](https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/download/v1.0.10/CellImageBridgeVsto-1.0.10.zip)**
 
-**[Gitee 下载 CellImageBridgeVsto-1.0.9.zip](https://gitee.com/chengang0470/excel-wps-cell-image-bridge/raw/master/downloads/CellImageBridgeVsto-1.0.9.zip)**
+**[Gitee 下载 CellImageBridgeVsto-1.0.10.zip](https://gitee.com/chengang0470/excel-wps-cell-image-bridge/raw/master/downloads/CellImageBridgeVsto-1.0.10.zip)**
 
 1. 将 ZIP **完整解压**到本地文件夹，不要直接在压缩包内运行。
 2. 关闭所有 Microsoft Excel 窗口。

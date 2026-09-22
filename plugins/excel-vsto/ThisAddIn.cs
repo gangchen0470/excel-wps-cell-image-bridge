@@ -16,8 +16,8 @@ namespace CellImageBridgeVsto {
     public partial class ThisAddIn {
         private dynamic app;
         private bool busy;
-        private const string CurrentVersion = "1.0.9";
-        private const string GitHubUpdateManifestUrl = "https://raw.githubusercontent.com/gangchen0470/excel-wps-cell-image-bridge/main/update.json";
+        private const string CurrentVersion = "1.0.10";
+        private const string GitHubUpdateManifestUrl = "https://api.github.com/repos/gangchen0470/excel-wps-cell-image-bridge/contents/update.json?ref=main";
         private const string GiteeUpdateManifestUrl = "https://gitee.com/chengang0470/excel-wps-cell-image-bridge/raw/master/update.json";
         private static readonly Regex Formula = new Regex(@"^\s*=?\s*(?:_xlfn\.)?DISPIMG\s*\(\s*""([^""]+)""\s*[,;]\s*1\s*\)\s*$", RegexOptions.IgnoreCase);
         private class Picture { public byte[] Bytes; public int Width; public int Height; public string Extension; }
@@ -44,8 +44,11 @@ namespace CellImageBridgeVsto {
             Exception lastError = null;
             foreach (var source in new[] { new { Name = "GitHub", Manifest = GitHubUpdateManifestUrl, DownloadField = "githubDownloadUrl" }, new { Name = "Gitee", Manifest = GiteeUpdateManifestUrl, DownloadField = "giteeDownloadUrl" } }) {
                 try {
-                    var request = WebRequest.Create(source.Manifest);
+                    var request = (HttpWebRequest)WebRequest.Create(source.Manifest);
                     request.Timeout = 5000;
+                    request.ReadWriteTimeout = 5000;
+                    request.UserAgent = "CellImageBridgeVsto/" + CurrentVersion;
+                    if (source.Name == "GitHub") request.Accept = "application/vnd.github.raw+json";
                     string json;
                     using (var response = request.GetResponse())
                     using (var reader = new StreamReader(response.GetResponseStream())) json = reader.ReadToEnd();
