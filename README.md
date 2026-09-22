@@ -4,9 +4,9 @@
 
 Windows 和 Microsoft Excel 用户请下载：
 
-**[GitHub 下载 CellImageBridgeVsto-1.0.10.zip](https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/download/v1.0.10/CellImageBridgeVsto-1.0.10.zip)**
+**[GitHub 下载 CellImageBridgeVsto-1.0.11.zip](https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/download/v1.0.11/CellImageBridgeVsto-1.0.11.zip)**
 
-**[Gitee 下载 CellImageBridgeVsto-1.0.10.zip](https://gitee.com/chengang0470/excel-wps-cell-image-bridge/raw/master/downloads/CellImageBridgeVsto-1.0.10.zip)**
+**[Gitee 下载 CellImageBridgeVsto-1.0.11.zip](https://gitee.com/chengang0470/excel-wps-cell-image-bridge/raw/master/downloads/CellImageBridgeVsto-1.0.11.zip)**
 
 1. 将 ZIP **完整解压**到本地文件夹，不要直接在压缩包内运行。
 2. 关闭所有 Microsoft Excel 窗口。
@@ -27,7 +27,7 @@ Windows 和 Microsoft Excel 用户请下载：
 
 插件同时识别 WPS `DISPIMG` 和新版 Excel“置于单元格”图片。**修复并另存兼容版**会先将两类图片转换为普通浮动图片，再保存新副本；浮动图片可在 WPS 和不支持单元格图片的旧版 Excel 中显示。原文件不会被覆盖。
 
-点击功能区中的 **检查更新**，插件优先读取 GitHub 的 `update.json`；GitHub 无法访问时自动读取 Gitee 镜像，并打开对应源的安装包下载地址。
+点击功能区中的 **检查更新**，插件优先使用 GitHub；GitHub 无法访问时自动使用 Gitee。发现新版本后可直接下载并校验安装包，无需打开浏览器。请先保存工作簿并关闭 Excel；Excel 退出后更新程序会自动安装，完成后重新打开 Excel 即可。
 
 如果安装后没有出现选项卡，请在 Excel 中打开“文件 → 选项 → 加载项 → COM 加载项”，确认 `CellImageBridgeVsto` 已启用。
 

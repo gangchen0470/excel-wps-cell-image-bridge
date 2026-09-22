@@ -1,3 +1,4 @@
+param([switch]$Silent)
 $ErrorActionPreference = "Stop"
 
 $excel = Get-Process EXCEL -ErrorAction SilentlyContinue
@@ -6,7 +7,7 @@ if ($excel) {
     $backgroundExcel = @($excel | Where-Object { $_.MainWindowHandle -eq 0 })
     if ($visibleExcel.Count -gt 0) {
         Write-Host "Please close all Microsoft Excel windows, then run this installer again." -ForegroundColor Yellow
-        Read-Host "Press Enter to exit"
+        if (-not $Silent) { Read-Host "Press Enter to exit" }
         exit 1
     }
     if ($backgroundExcel.Count -gt 0) {
@@ -23,7 +24,7 @@ $installerCandidates = @(
 
 if (-not $installerCandidates) {
     Write-Host "Microsoft Visual Studio Tools for Office Runtime is not installed." -ForegroundColor Red
-    Read-Host "Press Enter to exit"
+    if (-not $Silent) { Read-Host "Press Enter to exit" }
     exit 2
 }
 
@@ -56,5 +57,6 @@ foreach ($oldManifest in ($manifestsToRemove | Select-Object -Unique)) {
 }
 
 Write-Host "Opening the Microsoft Office add-in installer..."
-& $installer /Install $manifest
+if ($Silent) { & $installer /Install $manifest /Silent }
+else { & $installer /Install $manifest }
 exit $LASTEXITCODE

@@ -7,6 +7,7 @@ using System.Linq;
 using System.Diagnostics;
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using System.Xml.Linq;
@@ -16,7 +17,7 @@ namespace CellImageBridgeVsto {
     public partial class ThisAddIn {
         private dynamic app;
         private bool busy;
-        private const string CurrentVersion = "1.0.10";
+        private const string CurrentVersion = "1.0.11";
         private const string GitHubUpdateManifestUrl = "https://api.github.com/repos/gangchen0470/excel-wps-cell-image-bridge/contents/update.json?ref=main";
         private const string GiteeUpdateManifestUrl = "https://gitee.com/chengang0470/excel-wps-cell-image-bridge/raw/master/update.json";
         private static readonly Regex Formula = new Regex(@"^\s*=?\s*(?:_xlfn\.)?DISPIMG\s*\(\s*""([^""]+)""\s*[,;]\s*1\s*\)\s*$", RegexOptions.IgnoreCase);
@@ -56,14 +57,20 @@ namespace CellImageBridgeVsto {
                     string downloadUrl = JsonField(json, source.DownloadField);
                     if (String.IsNullOrEmpty(downloadUrl)) downloadUrl = JsonField(json, "downloadUrl");
                     Uri download;
-                    if (String.IsNullOrEmpty(versionText) || !Uri.TryCreate(downloadUrl, UriKind.Absolute, out download) || download.Scheme != Uri.UriSchemeHttps)
+                    string expectedHash = JsonField(json, "sha256");
+                    if (String.IsNullOrEmpty(versionText) || !Uri.TryCreate(downloadUrl, UriKind.Absolute, out download) || download.Scheme != Uri.UriSchemeHttps ||
+                        String.IsNullOrEmpty(expectedHash) || !Regex.IsMatch(expectedHash, "^[0-9a-fA-F]{64}$"))
                         throw new Exception("更新信息格式无效。");
                     var latest = new Version(versionText);
                     var current = new Version(CurrentVersion);
                     Trace("CheckUpdate: source=" + source.Name + ", latest=" + latest);
                     if (latest <= current) { Notify("当前已是最新版本：" + CurrentVersion + "（" + source.Name + "）"); return; }
-                    if (MessageBox.Show("发现新版本 " + latest + "（当前 " + current + "）。\n更新源：" + source.Name + "\n是否打开下载页面？", "插件更新", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
-                        Process.Start(new ProcessStartInfo(download.AbsoluteUri) { UseShellExecute = true });
+                    if (MessageBox.Show("发现新版本 " + latest + "（当前 " + current + "）。\n更新源：" + source.Name + "\n将下载并校验安装包；下载后请保存并关闭所有 Excel 窗口，更新程序会自动安装。\n\n现在开始吗？", "插件在线更新", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+                    string packageFolder = DownloadUpdate(download, latest, expectedHash);
+                    string helper = Path.Combine(packageFolder, "Update-AfterExcel.ps1");
+                    if (!File.Exists(helper)) throw new Exception("安装包缺少自动更新程序。");
+                    Process.Start(new ProcessStartInfo("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"" + helper + "\" -ExcelProcessId " + Process.GetCurrentProcess().Id) { UseShellExecute = false, CreateNoWindow = true });
+                    Notify("安装包已下载并校验。请保存工作簿并退出所有 Excel 窗口；退出后将自动安装 " + latest + "。安装结果会单独提示。");
                     return;
                 } catch (Exception e) {
                     lastError = e;
@@ -75,6 +82,35 @@ namespace CellImageBridgeVsto {
         private static string JsonField(string json, string field) {
             var match = Regex.Match(json, "\\\"" + Regex.Escape(field) + "\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"");
             return match.Success ? match.Groups[1].Value : null;
+        }
+        private static string DownloadUpdate(Uri url, Version version, string expectedHash) {
+            string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CellImageBridgeVsto", "updates", version + "-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(folder);
+            string archive = Path.Combine(folder, "CellImageBridgeVsto.zip");
+            var request = (HttpWebRequest)WebRequest.Create(url);
+            request.Timeout = 15000;
+            request.ReadWriteTimeout = 15000;
+            request.UserAgent = "CellImageBridgeVsto/" + CurrentVersion;
+            using (var response = request.GetResponse())
+            using (var input = response.GetResponseStream())
+            using (var output = new FileStream(archive, FileMode.Create, FileAccess.Write)) {
+                byte[] buffer = new byte[81920];
+                int read; long total = 0;
+                while ((read = input.Read(buffer, 0, buffer.Length)) > 0) {
+                    total += read;
+                    if (total > 50L * 1024 * 1024) throw new Exception("更新包超过 50 MB 限制。");
+                    output.Write(buffer, 0, read);
+                }
+            }
+            string actualHash;
+            using (var file = File.OpenRead(archive))
+            using (var sha = SHA256.Create()) actualHash = BitConverter.ToString(sha.ComputeHash(file)).Replace("-", "");
+            if (!String.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase)) throw new Exception("更新包校验失败，请稍后重试。");
+            string extracted = Path.Combine(folder, "package");
+            ZipFile.ExtractToDirectory(archive, extracted);
+            if (!File.Exists(Path.Combine(extracted, "CellImageBridgeVsto.vsto")) || !File.Exists(Path.Combine(extracted, "Install-ExcelAddin.ps1")))
+                throw new Exception("更新包内容不完整。");
+            return extracted;
         }
         public void SaveCopy(object control) {
             try {
