@@ -18,7 +18,7 @@ $candidates = foreach ($root in $searchRoots) {
             }
         }
 }
-$source = $candidates | Sort-Object Version -Descending | Select-Object -First 1
+$source = $candidates | Where-Object { $_.Version -le [version]"1.0.12" } | Sort-Object Version -Descending | Select-Object -First 1
 if (-not $source) { throw "未找到以前下载并解压的插件。请重新下载发布包并运行 Install-ExcelAddin.cmd。" }
 
 $registryPaths = @(
