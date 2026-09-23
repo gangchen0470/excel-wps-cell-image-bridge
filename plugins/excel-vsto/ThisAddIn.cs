@@ -4,20 +4,20 @@ using System.Drawing;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Diagnostics;
 using System.Net;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using System.Xml.Linq;
+using Microsoft.Win32;
 
 
 namespace CellImageBridgeVsto {
     public partial class ThisAddIn {
         private dynamic app;
         private bool busy;
-        private const string CurrentVersion = "1.0.12";
+        private const string CurrentVersion = "1.0.13";
         private const string GitHubUpdateManifestUrl = "https://api.github.com/repos/gangchen0470/excel-wps-cell-image-bridge/contents/update.json?ref=main";
         private const string GiteeUpdateManifestUrl = "https://gitee.com/chengang0470/excel-wps-cell-image-bridge/raw/master/update.json";
         private static readonly Regex Formula = new Regex(@"^\s*=?\s*(?:_xlfn\.)?DISPIMG\s*\(\s*""([^""]+)""\s*[,;]\s*1\s*\)\s*$", RegexOptions.IgnoreCase);
@@ -65,12 +65,10 @@ namespace CellImageBridgeVsto {
                     var current = new Version(CurrentVersion);
                     Trace("CheckUpdate: source=" + source.Name + ", latest=" + latest);
                     if (latest <= current) { Notify("当前已是最新版本：" + CurrentVersion + "（" + source.Name + "）"); return; }
-                    if (MessageBox.Show("发现新版本 " + latest + "（当前 " + current + "）。\n更新源：" + source.Name + "\n将下载并校验安装包；下载后请保存并关闭所有 Excel 窗口。若 Office 要求确认，请在安装窗口点击“安装”。\n\n现在开始吗？", "插件在线更新", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+                    if (MessageBox.Show("发现新版本 " + latest + "（当前 " + current + "）。\n更新源：" + source.Name + "\n将下载、校验并准备新版。Excel 可以继续使用；新版会在下次启动 Excel 时生效。\n\n现在开始吗？", "插件在线更新", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
                     string packageFolder = DownloadUpdate(download, latest, expectedHash);
-                    string helper = Path.Combine(packageFolder, "Update-AfterExcel.ps1");
-                    if (!File.Exists(helper)) throw new Exception("安装包缺少自动更新程序。");
-                    Process.Start(new ProcessStartInfo("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"" + helper + "\" -ExcelProcessId " + Process.GetCurrentProcess().Id) { UseShellExecute = false, CreateNoWindow = true });
-                    Notify("安装包已下载并校验。请保存工作簿并退出所有 Excel 窗口；退出后将安装 " + latest + "。若出现 Office 确认窗口，请点击“安装”。安装结果会单独提示。");
+                    StageUpdate(packageFolder, latest);
+                    Notify("新版 " + latest + " 已下载、校验并准备完成。\n\n当前 Excel 可以继续使用；下次启动 Excel 时会自动使用新版。");
                     return;
                 } catch (Exception e) {
                     lastError = e;
@@ -111,6 +109,35 @@ namespace CellImageBridgeVsto {
             if (!File.Exists(Path.Combine(extracted, "CellImageBridgeVsto.vsto")) || !File.Exists(Path.Combine(extracted, "Install-ExcelAddin.ps1")))
                 throw new Exception("更新包内容不完整。");
             return extracted;
+        }
+        private static void StageUpdate(string packageFolder, Version version) {
+            string installRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CellImageBridgeVsto", "installed", version.ToString());
+            string staging = installRoot + ".staging-" + Guid.NewGuid().ToString("N");
+            CopyDirectory(packageFolder, staging);
+            string stagedManifest = Path.Combine(staging, "CellImageBridgeVsto.vsto");
+            if (!File.Exists(stagedManifest)) throw new Exception("新版部署清单不存在。");
+            if (Directory.Exists(installRoot)) Directory.Delete(installRoot, true);
+            Directory.Move(staging, installRoot);
+            string manifest = new Uri(Path.Combine(installRoot, "CellImageBridgeVsto.vsto")).AbsoluteUri + "|vstolocal";
+            bool updated = false;
+            foreach (string keyName in new[] {
+                @"Software\Microsoft\Office\Excel\Addins\CellImageBridgeVsto",
+                @"Software\WOW6432Node\Microsoft\Office\Excel\Addins\CellImageBridgeVsto"
+            }) {
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(keyName, true)) {
+                    if (key == null) continue;
+                    key.SetValue("Manifest", manifest, RegistryValueKind.String);
+                    key.SetValue("LoadBehavior", 3, RegistryValueKind.DWord);
+                    updated = true;
+                }
+            }
+            if (!updated) throw new Exception("未找到插件注册信息，请使用发布包中的 Install-ExcelAddin.cmd 安装。");
+            File.WriteAllText(Path.Combine(installRoot, "update-ready.txt"), "version=" + version + Environment.NewLine + "prepared=" + DateTime.Now.ToString("O"));
+        }
+        private static void CopyDirectory(string source, string destination) {
+            Directory.CreateDirectory(destination);
+            foreach (string file in Directory.GetFiles(source)) File.Copy(file, Path.Combine(destination, Path.GetFileName(file)), true);
+            foreach (string directory in Directory.GetDirectories(source)) CopyDirectory(directory, Path.Combine(destination, Path.GetFileName(directory)));
         }
         public void SaveCopy(object control) {
             try {
