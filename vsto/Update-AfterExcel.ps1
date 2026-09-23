@@ -15,28 +15,27 @@ try {
     if (-not $identity.version) { throw "无法读取新版版本号。" }
     $version = ([version]$identity.version).ToString(3)
 
-    $installRoot = Join-Path $env:LOCALAPPDATA ("CellImageBridgeVsto\installed\" + $version)
-    $staging = $installRoot + ".staging-" + [guid]::NewGuid().ToString("N")
-    New-Item -ItemType Directory -Path $staging | Out-Null
-    Copy-Item -LiteralPath (Join-Path $PSScriptRoot "Application Files") -Destination $staging -Recurse
-    Get-ChildItem -LiteralPath $PSScriptRoot -File | Copy-Item -Destination $staging
-    if (Test-Path -LiteralPath $installRoot) { Remove-Item -LiteralPath $installRoot -Recurse -Force }
-    Move-Item -LiteralPath $staging -Destination $installRoot
-
-    $installedManifest = Join-Path $installRoot "CellImageBridgeVsto.vsto"
-    $manifestUri = ([Uri]$installedManifest).AbsoluteUri + "|vstolocal"
     $registryPaths = @(
         "HKCU:\Software\Microsoft\Office\Excel\Addins\CellImageBridgeVsto",
         "HKCU:\Software\WOW6432Node\Microsoft\Office\Excel\Addins\CellImageBridgeVsto"
     )
-    $updated = $false
+    $installedManifest = $null
     foreach ($registryPath in $registryPaths) {
         if (-not (Test-Path $registryPath)) { continue }
-        Set-ItemProperty -Path $registryPath -Name Manifest -Value $manifestUri
-        Set-ItemProperty -Path $registryPath -Name LoadBehavior -Value 3 -Type DWord
-        $updated = $true
+        $value = (Get-ItemProperty -Path $registryPath -Name Manifest -ErrorAction SilentlyContinue).Manifest
+        if (-not $value) { continue }
+        try {
+            $uri = [Uri]($value -replace "\|vstolocal$", "")
+            if ($uri.IsFile) { $installedManifest = $uri.LocalPath; break }
+        } catch { }
     }
-    if (-not $updated) { throw "未找到插件注册信息，请运行安装包中的 Install-ExcelAddin.cmd。" }
+    if (-not $installedManifest) { throw "未找到本地插件来源，请运行安装包中的 Install-ExcelAddin.cmd。" }
+    $installRoot = Split-Path -Parent $installedManifest
+    if (-not (Test-Path -LiteralPath $installRoot)) { throw "原插件安装目录不存在，请重新安装插件。" }
+
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot "Application Files") -Destination $installRoot -Recurse -Force
+    Get-ChildItem -LiteralPath $PSScriptRoot -File | Where-Object { $_.Name -ne "CellImageBridgeVsto.vsto" } | Copy-Item -Destination $installRoot -Force
+    Copy-Item -LiteralPath $manifest -Destination $installedManifest -Force
     Set-Content -LiteralPath (Join-Path $installRoot "update-ready.txt") -Value ("version=" + $version + "`r`nprepared=" + (Get-Date).ToString("O"))
     Show-Result ("新版 " + $version + " 已准备完成。当前 Excel 可以继续使用；下次启动时自动加载新版。") $true
 } catch {

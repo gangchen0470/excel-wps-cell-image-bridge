@@ -17,7 +17,7 @@ namespace CellImageBridgeVsto {
     public partial class ThisAddIn {
         private dynamic app;
         private bool busy;
-        private const string CurrentVersion = "1.0.13";
+        private const string CurrentVersion = "1.0.14";
         private const string GitHubUpdateManifestUrl = "https://api.github.com/repos/gangchen0470/excel-wps-cell-image-bridge/contents/update.json?ref=main";
         private const string GiteeUpdateManifestUrl = "https://gitee.com/chengang0470/excel-wps-cell-image-bridge/raw/master/update.json";
         private static readonly Regex Formula = new Regex(@"^\s*=?\s*(?:_xlfn\.)?DISPIMG\s*\(\s*""([^""]+)""\s*[,;]\s*1\s*\)\s*$", RegexOptions.IgnoreCase);
@@ -111,27 +111,31 @@ namespace CellImageBridgeVsto {
             return extracted;
         }
         private static void StageUpdate(string packageFolder, Version version) {
-            string installRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CellImageBridgeVsto", "installed", version.ToString());
-            string staging = installRoot + ".staging-" + Guid.NewGuid().ToString("N");
-            CopyDirectory(packageFolder, staging);
-            string stagedManifest = Path.Combine(staging, "CellImageBridgeVsto.vsto");
-            if (!File.Exists(stagedManifest)) throw new Exception("新版部署清单不存在。");
-            if (Directory.Exists(installRoot)) Directory.Delete(installRoot, true);
-            Directory.Move(staging, installRoot);
-            string manifest = new Uri(Path.Combine(installRoot, "CellImageBridgeVsto.vsto")).AbsoluteUri + "|vstolocal";
-            bool updated = false;
+            string installedManifest = null;
             foreach (string keyName in new[] {
                 @"Software\Microsoft\Office\Excel\Addins\CellImageBridgeVsto",
                 @"Software\WOW6432Node\Microsoft\Office\Excel\Addins\CellImageBridgeVsto"
             }) {
-                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(keyName, true)) {
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(keyName, false)) {
                     if (key == null) continue;
-                    key.SetValue("Manifest", manifest, RegistryValueKind.String);
-                    key.SetValue("LoadBehavior", 3, RegistryValueKind.DWord);
-                    updated = true;
+                    string value = Convert.ToString(key.GetValue("Manifest"));
+                    Uri uri;
+                    if (!String.IsNullOrEmpty(value) && Uri.TryCreate(value.Replace("|vstolocal", ""), UriKind.Absolute, out uri) && uri.IsFile) {
+                        installedManifest = uri.LocalPath;
+                        break;
+                    }
                 }
             }
-            if (!updated) throw new Exception("未找到插件注册信息，请使用发布包中的 Install-ExcelAddin.cmd 安装。");
+            if (String.IsNullOrEmpty(installedManifest)) throw new Exception("未找到本地插件来源，请使用发布包中的 Install-ExcelAddin.cmd 安装。");
+            string installRoot = Path.GetDirectoryName(installedManifest);
+            if (!Directory.Exists(installRoot)) throw new Exception("原插件安装目录不存在，请重新安装插件。");
+            string sourceManifest = Path.Combine(packageFolder, "CellImageBridgeVsto.vsto");
+            foreach (string directory in Directory.GetDirectories(packageFolder)) CopyDirectory(directory, Path.Combine(installRoot, Path.GetFileName(directory)));
+            foreach (string file in Directory.GetFiles(packageFolder)) {
+                if (String.Equals(file, sourceManifest, StringComparison.OrdinalIgnoreCase)) continue;
+                File.Copy(file, Path.Combine(installRoot, Path.GetFileName(file)), true);
+            }
+            File.Copy(sourceManifest, installedManifest, true);
             File.WriteAllText(Path.Combine(installRoot, "update-ready.txt"), "version=" + version + Environment.NewLine + "prepared=" + DateTime.Now.ToString("O"));
         }
         private static void CopyDirectory(string source, string destination) {

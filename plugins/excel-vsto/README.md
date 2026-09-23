@@ -12,9 +12,9 @@
 
 当前版本下载地址：
 
-GitHub：`https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/download/v1.0.13/CellImageBridgeVsto-1.0.13.zip`
+GitHub：`https://github.com/gangchen0470/excel-wps-cell-image-bridge/releases/download/v1.0.14/CellImageBridgeVsto-1.0.14.zip`
 
-Gitee：`https://gitee.com/chengang0470/excel-wps-cell-image-bridge/raw/master/downloads/CellImageBridgeVsto-1.0.13.zip`
+Gitee：`https://gitee.com/chengang0470/excel-wps-cell-image-bridge/raw/master/downloads/CellImageBridgeVsto-1.0.14.zip`
 
 功能区的“检查更新”可直接下载、校验并准备新版，更新期间无需关闭 Excel。当前 Excel 继续运行原版本，下次启动时自动加载新版。
 
