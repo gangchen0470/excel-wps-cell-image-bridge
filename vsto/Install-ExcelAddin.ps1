@@ -48,18 +48,30 @@ foreach ($registryPath in $registryPaths) {
     $manifestsToRemove += $oldManifest
 }
 
+foreach ($downloadRoot in @((Join-Path $env:USERPROFILE "Downloads"), "D:\Users\Administrator\Downloads")) {
+    if (-not (Test-Path -LiteralPath $downloadRoot)) { continue }
+    $manifestsToRemove += Get-ChildItem -LiteralPath $downloadRoot -Recurse -Filter "CellImageBridgeVsto.vsto" -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -notmatch "\\Application Files\\" } |
+        Select-Object -ExpandProperty FullName
+}
+
+function Invoke-VstoInstaller([string]$operation, [string]$sourceManifest, [bool]$silentMode) {
+    $arguments = @($operation, ('"' + $sourceManifest + '"'))
+    if ($silentMode) { $arguments += "/Silent" }
+    $process = Start-Process -FilePath $installer -ArgumentList $arguments -Wait -PassThru
+    return $process.ExitCode
+}
+
 Write-Host "Removing any previously installed CellImageBridgeVsto..."
 foreach ($oldManifest in ($manifestsToRemove | Select-Object -Unique)) {
     # VSTO can retain an application in the ClickOnce cache without an Excel
     # Addins registry key. Uninstalling by the current manifest identity also
     # removes that copy, even when it was originally installed from another path.
-    & $installer /Uninstall $oldManifest /Silent 2>$null
+    [void](Invoke-VstoInstaller "/Uninstall" $oldManifest $true)
 }
 
 Write-Host "Opening the Microsoft Office add-in installer..."
-if ($Silent) { & $installer /Install $manifest /Silent }
-else { & $installer /Install $manifest }
-$installExitCode = $LASTEXITCODE
+$installExitCode = Invoke-VstoInstaller "/Install" $manifest ([bool]$Silent)
 
 function Test-InstalledManifest {
     foreach ($registryPath in $registryPaths) {
@@ -76,8 +88,7 @@ function Test-InstalledManifest {
 
 if ($Silent -and -not (Test-InstalledManifest)) {
     Write-Host "Silent installation needs Office confirmation. Opening the installer..."
-    & $installer /Install $manifest
-    $installExitCode = $LASTEXITCODE
+    $installExitCode = Invoke-VstoInstaller "/Install" $manifest $false
 }
 if ($installExitCode -ne 0 -or -not (Test-InstalledManifest)) {
     Write-Host "VSTO installation did not register the new manifest." -ForegroundColor Red
