@@ -55,6 +55,15 @@ foreach ($downloadRoot in @((Join-Path $env:USERPROFILE "Downloads"), "D:\Users\
         Select-Object -ExpandProperty FullName
 }
 
+$uninstallRoot = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall"
+if (Test-Path $uninstallRoot) {
+    foreach ($entry in Get-ChildItem $uninstallRoot -ErrorAction SilentlyContinue) {
+        $properties = Get-ItemProperty $entry.PSPath -ErrorAction SilentlyContinue
+        if ($properties.DisplayName -ne "CellImageBridgeVsto" -or -not $properties.UrlUpdateInfo) { continue }
+        $manifestsToRemove += $properties.UrlUpdateInfo
+    }
+}
+
 function Invoke-VstoInstaller([string]$operation, [string]$sourceManifest, [bool]$silentMode) {
     $arguments = @($operation, ('"' + $sourceManifest + '"'))
     if ($silentMode) { $arguments += "/Silent" }
@@ -67,6 +76,17 @@ foreach ($oldManifest in ($manifestsToRemove | Select-Object -Unique)) {
     # VSTO can retain an application in the ClickOnce cache without an Excel
     # Addins registry key. Uninstalling by the current manifest identity also
     # removes that copy, even when it was originally installed from another path.
+    try {
+        $oldUri = [Uri]$oldManifest
+        if ($oldUri.IsFile -and -not (Test-Path -LiteralPath $oldUri.LocalPath) -and $oldUri.LocalPath -match "CellImageBridgeVsto-1\.0\.12") {
+            $legacyArchive = Join-Path $PSScriptRoot "Legacy-CellImageBridgeVsto-1.0.12.zip"
+            if (Test-Path -LiteralPath $legacyArchive) {
+                $legacyFolder = Split-Path -Parent $oldUri.LocalPath
+                New-Item -ItemType Directory -Path $legacyFolder -Force | Out-Null
+                Expand-Archive -LiteralPath $legacyArchive -DestinationPath $legacyFolder -Force
+            }
+        }
+    } catch { }
     [void](Invoke-VstoInstaller "/Uninstall" $oldManifest $true)
 }
 
